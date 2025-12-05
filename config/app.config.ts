@@ -58,7 +58,11 @@ export const appConfig = {
       'openai/gpt-5',
       'moonshotai/kimi-k2-instruct-0905',
       'anthropic/claude-sonnet-4-20250514',
-      'google/gemini-3-pro-preview'
+      'google/gemini-3-pro-preview',
+      // Vertex AI models (Google Cloud)
+      'vertex/gemini-2.0-flash',
+      'vertex/gemini-1.5-pro',
+      'vertex/gemini-1.5-flash'
     ],
     
     // Model display names
@@ -66,7 +70,11 @@ export const appConfig = {
       'openai/gpt-5': 'GPT-5',
       'moonshotai/kimi-k2-instruct-0905': 'Kimi K2 (Groq)',
       'anthropic/claude-sonnet-4-20250514': 'Sonnet 4',
-      'google/gemini-3-pro-preview': 'Gemini 3 Pro (Preview)'
+      'google/gemini-3-pro-preview': 'Gemini 3 Pro (Preview)',
+      // Vertex AI models
+      'vertex/gemini-2.0-flash': 'Gemini 2.0 Flash (Vertex)',
+      'vertex/gemini-1.5-pro': 'Gemini 1.5 Pro (Vertex)',
+      'vertex/gemini-1.5-flash': 'Gemini 1.5 Flash (Vertex)'
     } as Record<string, string>,
     
     // Model API configuration
@@ -74,6 +82,19 @@ export const appConfig = {
       'moonshotai/kimi-k2-instruct-0905': {
         provider: 'groq',
         model: 'moonshotai/kimi-k2-instruct-0905'
+      },
+      // Vertex AI models use their own authentication
+      'vertex/gemini-2.0-flash': {
+        provider: 'vertex',
+        model: 'gemini-2.0-flash'
+      },
+      'vertex/gemini-1.5-pro': {
+        provider: 'vertex',
+        model: 'gemini-1.5-pro'
+      },
+      'vertex/gemini-1.5-flash': {
+        provider: 'vertex',
+        model: 'gemini-1.5-flash'
       }
     },
     

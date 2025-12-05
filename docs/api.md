@@ -10,6 +10,75 @@ Most API routes require a valid sandbox session. Some routes require API keys co
 
 ---
 
+## AI Models and Providers
+
+Open Lovable supports multiple AI providers. Configure your preferred providers via environment variables.
+
+### Available Providers
+
+| Provider | Model Prefix | Auth Method | Environment Variables |
+|----------|--------------|-------------|----------------------|
+| OpenAI | `openai/` | API Key | `OPENAI_API_KEY` |
+| Anthropic | `anthropic/` | API Key | `ANTHROPIC_API_KEY` |
+| Google AI (Gemini) | `google/` | API Key | `GEMINI_API_KEY` |
+| Google Vertex AI | `vertex/` | ADC/Service Account | `GOOGLE_VERTEX_PROJECT`, `GOOGLE_VERTEX_LOCATION` |
+| Groq | (no prefix) | API Key | `GROQ_API_KEY` |
+
+### Model IDs
+
+```typescript
+// Available models
+const models = [
+  'openai/gpt-5',
+  'anthropic/claude-sonnet-4-20250514',
+  'google/gemini-3-pro-preview',
+  'vertex/gemini-2.0-flash',
+  'vertex/gemini-1.5-pro',
+  'vertex/gemini-1.5-flash',
+  'moonshotai/kimi-k2-instruct-0905'  // Groq
+];
+```
+
+### Google Vertex AI Setup
+
+Vertex AI uses Google Cloud's Application Default Credentials (ADC) instead of API keys:
+
+**Local Development:**
+```bash
+# Install Google Cloud CLI
+# https://cloud.google.com/sdk/docs/install
+
+# Login with ADC
+gcloud auth application-default login
+
+# Set project
+export GOOGLE_VERTEX_PROJECT=your-gcp-project-id
+export GOOGLE_VERTEX_LOCATION=us-central1  # Optional
+```
+
+**Production (Google Cloud):**
+- Use Workload Identity Federation (recommended)
+- Or attach a service account to your compute instance
+
+**Production (Non-Google Cloud):**
+```bash
+# Download service account key from GCP Console
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+export GOOGLE_VERTEX_PROJECT=your-gcp-project-id
+```
+
+### Vercel AI Gateway
+
+For simplified multi-provider access, use Vercel AI Gateway:
+
+```bash
+AI_GATEWAY_API_KEY=your_gateway_key
+```
+
+This provides access to OpenAI, Anthropic, Google, and Groq through a single API key.
+
+---
+
 ## Endpoints
 
 ### Sandbox Management

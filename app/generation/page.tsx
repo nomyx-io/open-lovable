@@ -524,7 +524,7 @@ IMPORTANT: Create a COMPLETE, working React application with all sections and fe
 
   return (
     <HeaderProvider>
-      <div className="font-sans bg-background text-foreground h-screen flex flex-col">
+      <div className="font-sans bg-background text-foreground h-screen flex flex-col overflow-hidden">
         {/* Header */}
         <HeaderBar
           aiModel={aiModel}
@@ -536,12 +536,12 @@ IMPORTANT: Create a COMPLETE, working React application with all sections and fe
           onDownloadZip={downloadZip}
         />
 
-        <div className="flex-1 flex overflow-hidden">
-          {/* Chat Panel (1/3 width) */}
-          <div className="flex-1 max-w-[400px] flex flex-col border-r border-border bg-background">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+          {/* Chat Panel - Full width on mobile, 1/3 on desktop */}
+          <div className="w-full lg:w-[380px] xl:w-[420px] flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 bg-white order-2 lg:order-1 max-h-[50vh] lg:max-h-none overflow-hidden">
             {/* Sidebar Input */}
             {!hasInitialSubmission && (
-              <div className="p-4 border-b border-border">
+              <div className="p-3 lg:p-4 border-b border-gray-100 flex-shrink-0">
                 <SidebarInput
                   onSubmit={handleSidebarSubmit}
                   disabled={loading || generationProgress.isGenerating}
@@ -550,90 +550,99 @@ IMPORTANT: Create a COMPLETE, working React application with all sections and fe
             )}
 
             {/* Chat Interface */}
-            <ChatInterface
-              chatMessages={chatMessages}
-              conversationContext={conversationContext}
-              generationProgress={generationProgress}
-              codeApplicationState={codeApplicationState}
-              aiChatInput={aiChatInput}
-              setAiChatInput={setAiChatInput}
-              onSendMessage={handleSendMessage}
-              screenshotCollapsed={screenshotCollapsed}
-              setScreenshotCollapsed={setScreenshotCollapsed}
-            />
+            <div className="flex-1 overflow-hidden">
+              <ChatInterface
+                chatMessages={chatMessages}
+                conversationContext={conversationContext}
+                generationProgress={generationProgress}
+                codeApplicationState={codeApplicationState}
+                aiChatInput={aiChatInput}
+                setAiChatInput={setAiChatInput}
+                onSendMessage={handleSendMessage}
+                screenshotCollapsed={screenshotCollapsed}
+                setScreenshotCollapsed={setScreenshotCollapsed}
+              />
+            </div>
           </div>
 
-          {/* Preview Panel (2/3 width) */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Tab Header */}
-            <div className="px-3 pt-4 pb-4 bg-white border-b border-gray-200 flex justify-between items-center">
+          {/* Preview Panel - Full width on mobile, 2/3 on desktop */}
+          <div className="flex-1 flex flex-col overflow-hidden order-1 lg:order-2 min-h-[50vh] lg:min-h-0">
+            {/* Tab Header - Enhanced for mobile */}
+            <div className="px-3 py-3 lg:px-4 lg:py-4 bg-white border-b border-gray-200 flex flex-wrap justify-between items-center gap-2 flex-shrink-0">
               <div className="flex items-center gap-2">
-                <div className="inline-flex bg-gray-100 border border-gray-200 rounded-md p-0.5">
+                <div className="inline-flex bg-gray-100 border border-gray-200 rounded-lg p-0.5">
                   <button
                     onClick={() => setActiveTab('generation')}
-                    className={`px-3 py-1 rounded transition-all text-xs font-medium ${
-                      activeTab === 'generation' 
-                        ? 'bg-white text-gray-900 shadow-sm' 
-                        : 'bg-transparent text-gray-600 hover:text-gray-900'
+                    className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
+                      activeTab === 'generation'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'bg-transparent text-gray-500 hover:text-gray-700'
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                       </svg>
-                      <span>Code</span>
+                      <span className="hidden sm:inline">Code</span>
                     </div>
                   </button>
                   <button
                     onClick={() => setActiveTab('preview')}
-                    className={`px-3 py-1 rounded transition-all text-xs font-medium ${
-                      activeTab === 'preview' 
-                        ? 'bg-white text-gray-900 shadow-sm' 
-                        : 'bg-transparent text-gray-600 hover:text-gray-900'
+                    className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
+                      activeTab === 'preview'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'bg-transparent text-gray-500 hover:text-gray-700'
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
-                      <span>View</span>
+                      <span className="hidden sm:inline">Preview</span>
                     </div>
                   </button>
                 </div>
               </div>
               
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-1.5 lg:gap-2 items-center flex-wrap">
+                {/* File count - Hidden on very small screens */}
                 {activeTab === 'generation' && !generationProgress.isEdit && generationProgress.files.length > 0 && (
-                  <div className="text-gray-500 text-xs font-medium">
-                    {generationProgress.files.length} files generated
+                  <div className="hidden sm:inline-flex text-gray-500 text-xs font-medium">
+                    {generationProgress.files.length} files
                   </div>
                 )}
                 
+                {/* Generation status */}
                 {generationProgress.isGenerating && (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-md text-xs font-medium text-gray-700">
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                    {generationProgress.isEdit ? 'Editing code' : 'Live generation'}
+                  <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded-lg text-xs font-medium text-green-700">
+                    <div className="relative">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                      <div className="absolute inset-0 w-1.5 h-1.5 bg-green-400 rounded-full animate-ping" />
+                    </div>
+                    <span className="hidden sm:inline">{generationProgress.isEdit ? 'Editing' : 'Generating'}</span>
                   </div>
                 )}
                 
-                {sandboxData && (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-md text-xs font-medium text-gray-700">
+                {/* Sandbox status */}
+                {sandboxData && !generationProgress.isGenerating && (
+                  <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-medium text-gray-600">
                     <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                    Sandbox active
+                    <span className="hidden sm:inline">Active</span>
                   </div>
                 )}
                 
+                {/* External link */}
                 {sandboxData && (
-                  <a 
-                    href={sandboxData.url} 
-                    target="_blank" 
+                  <a
+                    href={sandboxData.url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     title="Open in new tab"
-                    className="p-1.5 rounded-md transition-all text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    className="p-1.5 rounded-lg transition-all text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                   >
-                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                   </a>
                 )}
@@ -641,7 +650,7 @@ IMPORTANT: Create a COMPLETE, working React application with all sections and fe
             </div>
             
             {/* Main Content */}
-            <div className="flex-1 relative overflow-hidden">
+            <div className="flex-1 relative overflow-hidden bg-gray-50">
               {renderMainContent()}
             </div>
           </div>

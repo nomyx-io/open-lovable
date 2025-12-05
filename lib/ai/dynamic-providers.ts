@@ -20,10 +20,15 @@ import { createChildLogger, createTimer } from '@/lib/logger';
 
 const logger = createChildLogger('ai-providers');
 
-export type ProviderName = 'openai' | 'anthropic' | 'groq' | 'google';
+export type ProviderName = 'openai' | 'anthropic' | 'groq' | 'google' | 'vertex';
 
-// Type for provider factory functions
-type ProviderFactory<T = unknown> = (config: { apiKey?: string; baseURL?: string }) => T;
+// Type for provider factory functions (uses any for config to support different provider signatures)
+type ProviderFactory<T = unknown> = (config: Record<string, unknown>) => T;
+
+// Type for environment defaults - varies by provider
+type ProviderEnvDefaults =
+  | { apiKey?: string; baseURL?: string }  // Standard providers
+  | { project?: string; location?: string; googleAuthOptions?: { keyFilename?: string } }; // Vertex AI
 
 // Cache for loaded provider modules
 const moduleCache = new Map<ProviderName, ProviderFactory>();
@@ -68,12 +73,19 @@ const providerLoaders: Record<ProviderName, () => Promise<ProviderFactory>> = {
     timer.end('Google SDK loaded');
     return createGoogleGenerativeAI;
   },
+  
+  vertex: async () => {
+    const timer = createTimer('dynamic-import:vertex');
+    const { createVertex } = await import('@ai-sdk/google-vertex');
+    timer.end('Vertex AI SDK loaded');
+    return createVertex;
+  },
 };
 
 /**
  * Get default environment configuration for a provider
  */
-function getEnvDefaults(provider: ProviderName): { apiKey?: string; baseURL?: string } {
+function getEnvDefaults(provider: ProviderName): ProviderEnvDefaults {
   if (isUsingAIGateway) {
     return { apiKey: aiGatewayApiKey, baseURL: aiGatewayBaseURL };
   }
@@ -90,6 +102,17 @@ function getEnvDefaults(provider: ProviderName): { apiKey?: string; baseURL?: st
       return { apiKey: process.env.GROQ_API_KEY, baseURL: process.env.GROQ_BASE_URL };
     case 'google':
       return { apiKey: process.env.GEMINI_API_KEY, baseURL: process.env.GEMINI_BASE_URL };
+    case 'vertex':
+      // Vertex AI uses Google Cloud credentials (ADC or service account)
+      // Project and location are configured via environment variables
+      // Credentials path is optional - defaults to Application Default Credentials
+      return {
+        project: process.env.GOOGLE_VERTEX_PROJECT,
+        location: process.env.GOOGLE_VERTEX_LOCATION || 'us-central1',
+        googleAuthOptions: process.env.GOOGLE_VERTEX_CREDENTIALS_PATH
+          ? { keyFilename: process.env.GOOGLE_VERTEX_CREDENTIALS_PATH }
+          : undefined  // Uses ADC at ~/.config/gcloud/application_default_credentials.json
+      };
     default:
       return {};
   }
@@ -145,10 +168,13 @@ async function getOrCreateClient(
   const factory = await loadProviderModule(provider);
   const defaults = getEnvDefaults(provider);
   
-  const client = factory({
-    apiKey: effective.apiKey || defaults.apiKey,
-    baseURL: effective.baseURL ?? defaults.baseURL,
-  });
+  // Vertex AI requires different configuration (project/location vs apiKey/baseURL)
+  const client = provider === 'vertex'
+    ? factory(defaults as { project?: string; location?: string })
+    : factory({
+        apiKey: effective.apiKey || (defaults as { apiKey?: string }).apiKey,
+        baseURL: effective.baseURL ?? (defaults as { baseURL?: string }).baseURL,
+      });
 
   // Cache client
   clientCache.set(cacheKey, client);
@@ -202,6 +228,9 @@ export async function getDynamicProvider(modelId: string): Promise<DynamicProvid
   } else if (modelId.startsWith('google/')) {
     provider = 'google';
     actualModel = modelId.replace('google/', '');
+  } else if (modelId.startsWith('vertex/')) {
+    provider = 'vertex';
+    actualModel = modelId.replace('vertex/', '');
   } else {
     // Default to Groq
     provider = 'groq';
@@ -251,7 +280,7 @@ export function getAvailableProviders(): ProviderName[] {
   const available: ProviderName[] = [];
   
   if (isUsingAIGateway) {
-    // AI Gateway supports all providers
+    // AI Gateway supports all providers (except Vertex which uses its own auth)
     return ['openai', 'anthropic', 'groq', 'google'];
   }
   
@@ -259,6 +288,7 @@ export function getAvailableProviders(): ProviderName[] {
   if (process.env.ANTHROPIC_API_KEY) available.push('anthropic');
   if (process.env.GROQ_API_KEY) available.push('groq');
   if (process.env.GEMINI_API_KEY) available.push('google');
+  if (process.env.GOOGLE_VERTEX_PROJECT) available.push('vertex');
   
   return available;
 }
