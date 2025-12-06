@@ -20,7 +20,8 @@ import {
   extractPackagesFromCode,
   extractPackagesFromTags,
   validateGeneratedCode,
-  handleTruncation
+  handleTruncation,
+  auditAndRecover
 } from './lib';
 
 // Force dynamic route to enable streaming
@@ -200,7 +201,7 @@ export async function POST(request: NextRequest) {
         
         // Validate and potentially recover from truncation
         const truncationWarnings = validateGeneratedCode(generatedCode);
-        const { code: finalCode, warnings: finalWarnings } = await handleTruncation(
+        const { code: truncationRecoveredCode, warnings: finalWarnings } = await handleTruncation(
           generatedCode,
           truncationWarnings,
           prompt,
@@ -208,20 +209,60 @@ export async function POST(request: NextRequest) {
           sendProgress
         );
         
+        // Audit for incomplete implementations and attempt recovery
+        await sendProgress({ type: 'status', message: 'Auditing code completeness...' });
+        const auditConfig = {
+          enabled: true,
+          maxRetries: 2,
+          minScoreThreshold: 70,
+          criticalIssuesThreshold: 0
+        };
+        
+        const { code: finalCode, audit: auditResult, recovered: wasRecovered } = await auditAndRecover(
+          truncationRecoveredCode,
+          prompt,
+          model,
+          sendProgress,
+          auditConfig
+        );
+        
+        // Log audit results
+        if (auditResult) {
+          console.log(`[generate-ai-code-stream] Audit score: ${auditResult.score}/100, Issues: ${auditResult.issues.length}`);
+          if (wasRecovered) {
+            console.log('[generate-ai-code-stream] Code was improved by audit recovery');
+          }
+        }
+        
         // Extract explanation
         const explanationMatch = finalCode.match(/<explanation>([\s\S]*?)<\/explanation>/);
         const explanation = explanationMatch ? explanationMatch[1].trim() : 'Code generated successfully!';
         
+        // Build audit summary for warnings
+        const auditWarnings: string[] = [];
+        if (auditResult && !auditResult.complete) {
+          auditWarnings.push(`Code completeness: ${auditResult.score}/100`);
+          const criticalCount = auditResult.issues.filter(i => i.severity === 'critical').length;
+          if (criticalCount > 0) {
+            auditWarnings.push(`${criticalCount} incomplete implementations detected`);
+          }
+        }
+        
+        // Combine all warnings
+        const allWarnings = [...finalWarnings, ...auditWarnings];
+        
         // Send completion
-        await sendProgress({ 
-          type: 'complete', 
+        await sendProgress({
+          type: 'complete',
           generatedCode: finalCode,
           explanation,
           files: files.length,
           components: componentCount,
           model,
           packagesToInstall: packagesToInstall.length > 0 ? packagesToInstall : undefined,
-          warnings: finalWarnings.length > 0 ? finalWarnings : undefined
+          warnings: allWarnings.length > 0 ? allWarnings : undefined,
+          auditScore: auditResult?.score,
+          codeComplete: auditResult?.complete
         });
         
         // Track edit in conversation history
@@ -373,8 +414,8 @@ function buildFullPrompt(
   }
   
   // Use backend file cache
-  let backendFiles = global.sandboxState?.fileCache?.files || {};
-  let hasBackendFiles = Object.keys(backendFiles).length > 0;
+  const backendFiles = global.sandboxState?.fileCache?.files || {};
+  const hasBackendFiles = Object.keys(backendFiles).length > 0;
   
   if (hasBackendFiles) {
     if (editContext && editContext.primaryFiles.length > 0) {

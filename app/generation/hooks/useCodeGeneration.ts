@@ -119,6 +119,8 @@ export function useCodeGeneration(
                     setCodeApplicationState({ stage: 'installing', packages: data.packages });
                   } else if (data.message.includes('Creating files') || data.message.includes('Applying')) {
                     setCodeApplicationState({ stage: 'applying', filesGenerated: [] });
+                  } else if (data.message.includes('browser tests')) {
+                    addChatMessage('Running browser tests...', 'system');
                   }
                   break;
                   
@@ -137,6 +139,33 @@ export function useCodeGeneration(
                 case 'success':
                   if (data.installedPackages) {
                     setCodeApplicationState(prev => ({ ...prev, installedPackages: data.installedPackages }));
+                  }
+                  break;
+                  
+                case 'browser-tests':
+                  // Browser test results
+                  if (data.tests && data.tests.length > 0) {
+                    const passed = data.tests.filter((t: any) => t.success).length;
+                    const failed = data.tests.filter((t: any) => !t.success).length;
+                    let message = `Browser tests: ${passed} passed`;
+                    if (failed > 0) {
+                      message += `, ${failed} failed`;
+                    }
+                    addChatMessage(message, 'system');
+                    
+                    // Report failures
+                    for (const test of data.tests) {
+                      if (!test.success) {
+                        addChatMessage(`Test "${test.action}" failed: ${test.error}`, 'error');
+                      }
+                    }
+                  }
+                  break;
+                  
+                case 'browser-console-errors':
+                  // Console errors from browser tests
+                  if (data.errors && data.errors.length > 0) {
+                    addChatMessage(`Console errors detected during testing:\n${data.errors.join('\n')}`, 'error');
                   }
                   break;
                   

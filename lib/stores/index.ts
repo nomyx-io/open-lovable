@@ -53,3 +53,9 @@ export {
   type CodeApplicationStage,
   type CodeApplicationState,
 } from './conversation-store';
+
+// Browser Testing Store
+export {
+  useBrowserStore,
+  browserApi,
+} from './browser-store';

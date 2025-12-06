@@ -11,12 +11,14 @@ import { nextjsAppPrompt } from './nextjs-app-prompt';
 import { astroPrompt } from './astro-prompt';
 import { expoPrompt } from './expo-prompt';
 import { buildQualityPrompts } from './quality-prompts';
+import { browserToolPrompt } from './browser-tool-prompt';
 
 export interface PromptBuildOptions {
   projectType: ProjectTypeId;
   isEdit?: boolean;
   additionalContext?: string;
   includeQualityPrompts?: boolean;
+  includeBrowserTool?: boolean;
   qualityOptions?: {
     includeTypeScript?: boolean;
     includeAccessibility?: boolean;
@@ -53,17 +55,20 @@ export function getProjectTypePrompt(projectType: ProjectTypeId): string {
  * @param projectType - The project type (vite-react, nextjs-app, etc.)
  * @param isEdit - Whether this is an edit operation
  * @param additionalContext - Any additional context to include
+ * @param includeBrowserTool - Whether to include browser testing tool instructions
  */
 export function buildSystemPrompt(
   projectType: ProjectTypeId,
   isEdit: boolean = false,
-  additionalContext?: string
+  additionalContext?: string,
+  includeBrowserTool: boolean = true
 ): string {
   return buildSystemPromptWithOptions({
     projectType,
     isEdit,
     additionalContext,
     includeQualityPrompts: true,
+    includeBrowserTool,
     qualityOptions: {
       includeAccessibility: true,
       includeErrorHandling: true,
@@ -81,6 +86,7 @@ export function buildSystemPromptWithOptions(options: PromptBuildOptions): strin
     isEdit = false,
     additionalContext,
     includeQualityPrompts = true,
+    includeBrowserTool = true,
     qualityOptions = {}
   } = options;
   
@@ -112,7 +118,12 @@ export function buildSystemPromptWithOptions(options: PromptBuildOptions): strin
     parts.push(editModePrompt);
   }
   
-  // 5. Add any additional context
+  // 5. Add browser testing tool instructions if enabled and not mobile
+  if (includeBrowserTool && !isMobileProjectType(projectType)) {
+    parts.push(browserToolPrompt);
+  }
+  
+  // 6. Add any additional context
   if (additionalContext) {
     parts.push(`\n## ADDITIONAL CONTEXT\n\n${additionalContext}`);
   }

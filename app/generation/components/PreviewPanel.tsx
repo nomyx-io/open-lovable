@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { CodePreview } from './CodePreview';
 import { SandboxPreview } from './SandboxPreview';
+import { BrowserTestPanel } from '@/components/browser';
 import type { ActiveTab, GenerationProgress, CodeApplicationState, LoadingStage } from '../types';
 
 interface PreviewPanelProps {
@@ -49,6 +51,8 @@ export function PreviewPanel({
   screenshotError,
   refreshIframe
 }: PreviewPanelProps) {
+  const [showBrowserTest, setShowBrowserTest] = useState(false);
+  
   // Render main content based on active tab
   const renderMainContent = () => {
     if (activeTab === 'generation' && (generationProgress.isGenerating || generationProgress.files.length > 0)) {
@@ -59,6 +63,16 @@ export function PreviewPanel({
           toggleFolder={toggleFolder}
           selectedFile={selectedFile}
           setSelectedFile={setSelectedFile}
+        />
+      );
+    }
+    
+    if (activeTab === 'browser') {
+      return (
+        <BrowserTestPanel
+          sandboxUrl={sandboxData?.url}
+          onClose={() => setActiveTab('preview')}
+          className="h-full"
         />
       );
     }
@@ -118,6 +132,21 @@ export function PreviewPanel({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
                 <span className="hidden sm:inline">Preview</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('browser')}
+              className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
+                activeTab === 'browser'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span className="hidden sm:inline">Test</span>
               </div>
             </button>
           </div>

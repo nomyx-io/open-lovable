@@ -38,6 +38,9 @@ export interface StreamProgressData {
   model?: string;
   packagesToInstall?: string[];
   warnings?: string[];
+  // Audit-related fields
+  auditScore?: number;
+  codeComplete?: boolean;
 }
 
 export interface GenerationContext {

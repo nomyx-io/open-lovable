@@ -8,4 +8,5 @@ export { baseSystemPrompt, editModePrompt } from './base-prompt';
 export { viteReactPrompt } from './vite-react-prompt';
 export { nextjsAppPrompt } from './nextjs-app-prompt';
 export { astroPrompt } from './astro-prompt';
-export { buildSystemPrompt, getProjectTypePrompt } from './prompt-builder';
+export { browserToolPrompt } from './browser-tool-prompt';
+export { buildSystemPrompt, getProjectTypePrompt, buildSystemPromptWithOptions } from './prompt-builder';

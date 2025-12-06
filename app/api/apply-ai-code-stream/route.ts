@@ -7,6 +7,7 @@ import { sandboxManager } from '@/lib/sandbox/sandbox-manager';
 import type { ProjectTypeId } from '@/lib/projects/project-type';
 import { postProcessFile } from '@/lib/code-quality/post-processor';
 import { validateCode } from '@/lib/code-quality/code-validator';
+import { browserToolExecutor } from '@/lib/browser';
 
 declare global {
   var conversationState: ConversationState | null;
@@ -812,7 +813,7 @@ export async function POST(request: NextRequest) {
             const projectType: ProjectTypeId = global.sandboxState?.sandboxData?.projectType || 'vite-react';
             
             // Normalize the file path based on project type
-            let normalizedPath = normalizeFilePath(file.path, projectType);
+            const normalizedPath = normalizeFilePath(file.path, projectType);
             
             // Skip files that shouldn't be created (returned as empty string)
             if (!normalizedPath) {
@@ -977,6 +978,71 @@ export async function POST(request: NextRequest) {
                 error: (error as Error).message
               });
             }
+          }
+        }
+
+        // Step 4: Execute browser tests if any browser_test tags are present
+        const hasBrowserTests = response.includes('<browser_test');
+        if (hasBrowserTests) {
+          await sendProgress({
+            type: 'step',
+            step: 4,
+            message: 'Executing browser tests...'
+          });
+          
+          try {
+            // Get the sandbox URL for browser testing
+            const sandboxInfo = providerInstance.getSandboxInfo();
+            const sandboxUrl = sandboxInfo?.url;
+            
+            if (sandboxUrl) {
+              const browserResults = await browserToolExecutor.executeAllToolCalls(response, sandboxUrl);
+              
+              if (browserResults.toolCalls.length > 0) {
+                await sendProgress({
+                  type: 'browser-tests',
+                  message: `Executed ${browserResults.toolCalls.length} browser test(s)`,
+                  tests: browserResults.results.map(r => ({
+                    action: r.action,
+                    success: r.success,
+                    error: r.result.error
+                  })),
+                  screenshots: browserResults.screenshots.length > 0 ? browserResults.screenshots.slice(-1) : []
+                });
+                
+                // Report any browser test failures
+                const failedTests = browserResults.results.filter(r => !r.success);
+                if (failedTests.length > 0) {
+                  for (const test of failedTests) {
+                    results.errors.push(`Browser test "${test.action}" failed: ${test.result.error}`);
+                  }
+                }
+                
+                // Report console errors from browser
+                const consoleErrors = browserResults.results
+                  .flatMap(r => r.result.consoleLogs)
+                  .filter(log => log.type === 'error');
+                  
+                if (consoleErrors.length > 0) {
+                  await sendProgress({
+                    type: 'browser-console-errors',
+                    message: `${consoleErrors.length} console error(s) detected`,
+                    errors: consoleErrors.slice(0, 5).map(e => e.message)
+                  });
+                }
+              }
+            } else {
+              await sendProgress({
+                type: 'warning',
+                message: 'Browser tests skipped - no sandbox URL available'
+              });
+            }
+          } catch (browserError) {
+            console.error('[apply-ai-code-stream] Browser test error:', browserError);
+            await sendProgress({
+              type: 'warning',
+              message: `Browser tests failed: ${(browserError as Error).message}`
+            });
           }
         }
 

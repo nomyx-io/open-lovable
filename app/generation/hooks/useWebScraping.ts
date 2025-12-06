@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import type { ScrapeData, ConversationContext, ChatMessageMetadata } from '../types';
+import type { ScrapeData, ConversationContext, ChatMessageMetadata, ActiveTab } from '../types';
 
 interface UseWebScrapingReturn {
   urlScreenshot: string | null;
@@ -23,7 +23,7 @@ interface UseWebScrapingReturn {
 export function useWebScraping(
   addChatMessage: (content: string, type: 'user' | 'ai' | 'system' | 'file-update' | 'command' | 'error', metadata?: ChatMessageMetadata) => void,
   setConversationContext: React.Dispatch<React.SetStateAction<ConversationContext>>,
-  setActiveTab: React.Dispatch<React.SetStateAction<'generation' | 'preview'>>
+  setActiveTab: React.Dispatch<React.SetStateAction<ActiveTab>>
 ): UseWebScrapingReturn {
   const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
   const [isScreenshotLoaded, setIsScreenshotLoaded] = useState(false);

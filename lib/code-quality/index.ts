@@ -1,8 +1,8 @@
 /**
  * Code Quality Module
- * 
+ *
  * Comprehensive code quality system for improving AI-generated code.
- * Includes validation, pattern library, and post-processing.
+ * Includes validation, pattern library, post-processing, and code auditing.
  */
 
 // Code Validator
@@ -39,31 +39,46 @@ export {
   type PostProcessorOptions
 } from './post-processor';
 
+// Code Auditor
+export {
+  auditFile,
+  auditGeneratedCode,
+  generateAuditPrompt,
+  quickIncompleteCheck,
+  type AuditResult,
+  type AuditIssue,
+  type AuditIssueType
+} from './code-auditor';
+
 /**
- * Full quality pipeline - validate, fix, and enhance generated code
+ * Full quality pipeline - validate, fix, audit, and enhance generated code
  */
 export async function runQualityPipeline(
   generatedCode: string,
   options: {
     validate?: boolean;
     postProcess?: boolean;
-    projectType?: 'vite-react' | 'nextjs-app' | 'nextjs-pages' | 'astro';
+    audit?: boolean;
+    projectType?: 'vite-react' | 'nextjs-app' | 'nextjs-pages' | 'astro' | 'expo';
   } = {}
 ): Promise<{
   code: string;
   validation: import('./code-validator').ValidationResult | null;
   processing: import('./post-processor').PostProcessingResult | null;
+  audit: import('./code-auditor').AuditResult | null;
   summary: QualityPipelineSummary;
 }> {
   const {
     validate = true,
     postProcess = true,
+    audit = true,
     projectType = 'vite-react'
   } = options;
 
   let currentCode = generatedCode;
   let validationResult: import('./code-validator').ValidationResult | null = null;
   let processingResult: import('./post-processor').PostProcessingResult | null = null;
+  let auditResult: import('./code-auditor').AuditResult | null = null;
   
   // Step 1: Post-process to fix common issues first
   if (postProcess) {
@@ -83,6 +98,12 @@ export async function runQualityPipeline(
     validationResult = validateGeneratedCode(currentCode);
   }
   
+  // Step 3: Audit for incomplete implementations
+  if (audit) {
+    const { auditGeneratedCode } = await import('./code-auditor');
+    auditResult = auditGeneratedCode(currentCode);
+  }
+  
   // Build summary
   const summary: QualityPipelineSummary = {
     totalFiles: countFiles(generatedCode),
@@ -90,13 +111,17 @@ export async function runQualityPipeline(
     errorsRemaining: validationResult?.errors.length || 0,
     warningsRemaining: validationResult?.warnings.length || 0,
     suggestionsCount: validationResult?.suggestions.length || 0,
-    codeQualityScore: calculateQualityScore(validationResult, processingResult)
+    codeQualityScore: calculateQualityScore(validationResult, processingResult),
+    auditScore: auditResult?.score || 100,
+    auditIssues: auditResult?.issues.length || 0,
+    codeComplete: auditResult?.complete ?? true
   };
   
   return {
     code: currentCode,
     validation: validationResult,
     processing: processingResult,
+    audit: auditResult,
     summary
   };
 }
@@ -108,6 +133,9 @@ export interface QualityPipelineSummary {
   warningsRemaining: number;
   suggestionsCount: number;
   codeQualityScore: number; // 0-100
+  auditScore?: number; // 0-100
+  auditIssues?: number;
+  codeComplete?: boolean;
 }
 
 /**
@@ -162,14 +190,24 @@ export async function getRelevantPatterns(
  */
 export function formatQualityFeedback(
   summary: QualityPipelineSummary,
-  validation: import('./code-validator').ValidationResult | null
+  validation: import('./code-validator').ValidationResult | null,
+  audit?: import('./code-auditor').AuditResult | null
 ): string {
   const lines: string[] = [];
   
   // Overall score
-  const scoreEmoji = summary.codeQualityScore >= 80 ? '✅' : 
+  const scoreEmoji = summary.codeQualityScore >= 80 ? '✅' :
                      summary.codeQualityScore >= 60 ? '⚠️' : '❌';
   lines.push(`${scoreEmoji} Code Quality Score: ${summary.codeQualityScore}/100`);
+  
+  // Audit completeness
+  if (summary.auditScore !== undefined) {
+    const auditEmoji = summary.codeComplete ? '✅' : '⚠️';
+    lines.push(`${auditEmoji} Code Completeness: ${summary.auditScore}/100`);
+    if (!summary.codeComplete && summary.auditIssues) {
+      lines.push(`   ⚠️ ${summary.auditIssues} incomplete implementations detected`);
+    }
+  }
   
   // Files processed
   lines.push(`📁 ${summary.totalFiles} files generated`);
@@ -198,6 +236,20 @@ export function formatQualityFeedback(
   
   if (summary.suggestionsCount > 0) {
     lines.push(`💡 ${summary.suggestionsCount} improvement suggestions available`);
+  }
+  
+  // Audit details
+  if (audit && audit.issues.length > 0) {
+    const criticalIssues = audit.issues.filter(i => i.severity === 'critical');
+    if (criticalIssues.length > 0) {
+      lines.push(`\n🚨 CRITICAL: ${criticalIssues.length} incomplete implementations found:`);
+      for (const issue of criticalIssues.slice(0, 3)) {
+        lines.push(`   - ${issue.message}${issue.filePath ? ` (${issue.filePath})` : ''}`);
+      }
+      if (criticalIssues.length > 3) {
+        lines.push(`   ... and ${criticalIssues.length - 3} more`);
+      }
+    }
   }
   
   return lines.join('\n');

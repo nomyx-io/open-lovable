@@ -165,4 +165,4 @@ export interface CodeApplicationState {
 
 export type LoadingStage = 'gathering' | 'planning' | 'generating' | null;
 
-export type ActiveTab = 'generation' | 'preview';
+export type ActiveTab = 'generation' | 'preview' | 'browser';
