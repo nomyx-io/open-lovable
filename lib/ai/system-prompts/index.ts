@@ -9,4 +9,5 @@ export { viteReactPrompt } from './vite-react-prompt';
 export { nextjsAppPrompt } from './nextjs-app-prompt';
 export { astroPrompt } from './astro-prompt';
 export { browserToolPrompt } from './browser-tool-prompt';
-export { buildSystemPrompt, getProjectTypePrompt, buildSystemPromptWithOptions } from './prompt-builder';
+export { buildSystemPrompt, getProjectTypePrompt, buildSystemPromptWithOptions, buildSystemPromptWithCache } from './prompt-builder';
+export type { PromptBuildOptions } from './prompt-builder';

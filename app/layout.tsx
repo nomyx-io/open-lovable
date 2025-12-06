@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Roboto_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { SessionProvider } from "@/components/providers/SessionProvider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -57,15 +58,17 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} ${robotoMono.variable} font-sans antialiased bg-background text-foreground transition-colors duration-300`}>
-        <ThemeProvider>
-          {children}
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              className: 'dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700',
-            }}
-          />
-        </ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider>
+            {children}
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                className: 'dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700',
+              }}
+            />
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   );

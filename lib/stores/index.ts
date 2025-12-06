@@ -59,3 +59,12 @@ export {
   useBrowserStore,
   browserApi,
 } from './browser-store';
+
+// GitHub Store
+export {
+  useGitHubStore,
+  useCurrentProject,
+  useSyncState,
+  usePendingChanges,
+  useGitHubActions,
+} from './github-store';

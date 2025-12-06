@@ -12,6 +12,7 @@ import { astroPrompt } from './astro-prompt';
 import { expoPrompt } from './expo-prompt';
 import { buildQualityPrompts } from './quality-prompts';
 import { browserToolPrompt } from './browser-tool-prompt';
+import { OLCacheIntegration } from '@/lib/ol-cache';
 
 export interface PromptBuildOptions {
   projectType: ProjectTypeId;
@@ -19,6 +20,10 @@ export interface PromptBuildOptions {
   additionalContext?: string;
   includeQualityPrompts?: boolean;
   includeBrowserTool?: boolean;
+  /** Root directory for cache context (enables AI documentation cache) */
+  cacheRootDir?: string;
+  /** Description of the current step for focused cache context */
+  stepDescription?: string;
   qualityOptions?: {
     includeTypeScript?: boolean;
     includeAccessibility?: boolean;
@@ -87,6 +92,8 @@ export function buildSystemPromptWithOptions(options: PromptBuildOptions): strin
     additionalContext,
     includeQualityPrompts = true,
     includeBrowserTool = true,
+    cacheRootDir,
+    stepDescription,
     qualityOptions = {}
   } = options;
   
@@ -129,6 +136,36 @@ export function buildSystemPromptWithOptions(options: PromptBuildOptions): strin
   }
   
   return parts.join('\n\n');
+}
+
+/**
+ * Build system prompt with cache context (async version)
+ * This version includes AI documentation cache if available
+ */
+export async function buildSystemPromptWithCache(options: PromptBuildOptions): Promise<string> {
+  const basePrompt = buildSystemPromptWithOptions(options);
+  
+  // If no cache root dir provided, return base prompt
+  if (!options.cacheRootDir) {
+    return basePrompt;
+  }
+  
+  try {
+    const integration = new OLCacheIntegration(options.cacheRootDir);
+    const cacheContext = await integration.preGenerate(
+      options.stepDescription || 'Code generation'
+    );
+    
+    if (cacheContext) {
+      // Insert cache context before the base prompt
+      return `${cacheContext}\n\n${basePrompt}`;
+    }
+  } catch (error) {
+    console.error('[PromptBuilder] Error loading cache context:', error);
+    // Fall through to return base prompt
+  }
+  
+  return basePrompt;
 }
 
 /**

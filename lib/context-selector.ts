@@ -1,12 +1,22 @@
 import { FileManifest, EditIntent, EditType } from '@/types/file-manifest';
 import { analyzeEditIntent } from '@/lib/edit-intent-analyzer';
 import { getEditExamplesPrompt, getComponentPatternPrompt } from '@/lib/edit-examples';
+import { OLCacheIntegration } from '@/lib/ol-cache';
 
 export interface FileContext {
   primaryFiles: string[]; // Files to edit
   contextFiles: string[]; // Files to include for reference
   systemPrompt: string;   // Enhanced prompt with file info
   editIntent: EditIntent;
+  /** Cached documentation context if available */
+  cacheContext?: string;
+}
+
+export interface SelectFilesOptions {
+  /** Root directory for cache context (enables AI documentation cache) */
+  cacheRootDir?: string;
+  /** Whether to include cache context in the prompt */
+  includeCacheContext?: boolean;
 }
 
 /**
@@ -14,7 +24,8 @@ export interface FileContext {
  */
 export function selectFilesForEdit(
   userPrompt: string,
-  manifest: FileManifest
+  manifest: FileManifest,
+  _options?: SelectFilesOptions
 ): FileContext {
   // Analyze the edit intent
   const editIntent = analyzeEditIntent(userPrompt, manifest);
@@ -68,6 +79,61 @@ export function selectFilesForEdit(
     systemPrompt,
     editIntent,
   };
+}
+
+/**
+ * Select files and build context with cache support (async version)
+ */
+export async function selectFilesForEditWithCache(
+  userPrompt: string,
+  manifest: FileManifest,
+  options?: SelectFilesOptions
+): Promise<FileContext> {
+  // Get base context
+  const baseContext = selectFilesForEdit(userPrompt, manifest, options);
+  
+  // If no cache root dir, return base context
+  if (!options?.cacheRootDir || options.includeCacheContext === false) {
+    return baseContext;
+  }
+  
+  try {
+    const cacheIntegration = new OLCacheIntegration(options.cacheRootDir);
+    const cacheContext = await cacheIntegration.preGenerate(
+      `Edit: ${userPrompt} - Files: ${baseContext.primaryFiles.join(', ')}`
+    );
+    
+    if (cacheContext) {
+      return {
+        ...baseContext,
+        cacheContext,
+        systemPrompt: `${cacheContext}\n\n${baseContext.systemPrompt}`,
+      };
+    }
+  } catch (error) {
+    console.error('[ContextSelector] Error loading cache context:', error);
+    // Fall through to return base context
+  }
+  
+  return baseContext;
+}
+
+/**
+ * Update cache after edit operation completes
+ */
+export async function updateCacheAfterEdit(
+  cacheRootDir: string,
+  editedFiles: string[]
+): Promise<void> {
+  if (!cacheRootDir || editedFiles.length === 0) return;
+  
+  try {
+    const cacheIntegration = new OLCacheIntegration(cacheRootDir);
+    await cacheIntegration.postGenerate(editedFiles);
+  } catch (error) {
+    console.error('[ContextSelector] Error updating cache after edit:', error);
+    // Don't throw - cache update failure shouldn't break the edit flow
+  }
 }
 
 /**

@@ -15,6 +15,7 @@
 import pLimit from 'p-limit';
 import { getDynamicProvider } from '@/lib/ai/dynamic-providers';
 import { createChildLogger, createTimer } from '@/lib/logger';
+import { OLCacheIntegration } from '@/lib/ol-cache';
 
 const logger = createChildLogger('parallel-generation');
 
@@ -107,15 +108,33 @@ const DEFAULT_CONFIG: ParallelGenerationConfig = {
 };
 
 /**
+ * Extended config with cache support
+ */
+export interface ParallelGenerationConfigWithCache extends ParallelGenerationConfig {
+  /** Root directory for cache (enables AI documentation cache) */
+  cacheRootDir?: string;
+  /** Enable cache pre-generation context */
+  useCacheContext?: boolean;
+  /** Enable post-generation cache updates */
+  updateCacheAfterGeneration?: boolean;
+}
+
+/**
  * Main class for parallel code generation
  */
 export class ParallelCodeGenerator {
-  private config: ParallelGenerationConfig;
+  private config: ParallelGenerationConfigWithCache;
   private concurrencyLimit: ReturnType<typeof pLimit>;
+  private cacheIntegration: OLCacheIntegration | null = null;
 
-  constructor(config: Partial<ParallelGenerationConfig> = {}) {
+  constructor(config: Partial<ParallelGenerationConfigWithCache> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.concurrencyLimit = pLimit(this.config.maxConcurrency);
+    
+    // Initialize cache integration if root dir provided
+    if (this.config.cacheRootDir) {
+      this.cacheIntegration = new OLCacheIntegration(this.config.cacheRootDir);
+    }
     
     logger.info({ config: this.config }, 'ParallelCodeGenerator initialized');
   }
@@ -201,6 +220,23 @@ export class ParallelCodeGenerator {
       batchCount: batches.length,
     });
 
+    // Update cache with generated files if enabled
+    if (this.cacheIntegration && this.config.updateCacheAfterGeneration !== false) {
+      try {
+        const successfulFiles = results
+          .filter(r => r.success)
+          .map(r => r.filePath);
+        
+        if (successfulFiles.length > 0) {
+          await this.cacheIntegration.postGenerate(successfulFiles);
+          logger.debug({ fileCount: successfulFiles.length }, 'Cache updated after generation');
+        }
+      } catch (error) {
+        logger.warn({ error }, 'Failed to update cache after generation');
+        // Don't throw - cache update failure shouldn't break generation
+      }
+    }
+
     return results;
   }
 
@@ -278,10 +314,26 @@ export class ParallelCodeGenerator {
         .map(r => `// ${r.filePath}\n${r.content}`)
         .join('\n\n');
 
-      // Enhance prompt with dependency context
-      const enhancedPrompt = dependencyContext
-        ? `${task.prompt}\n\n--- Context from related components: ---\n${dependencyContext}`
-        : task.prompt;
+      // Get cache context if available
+      let cacheContext = '';
+      if (this.cacheIntegration && this.config.useCacheContext !== false) {
+        try {
+          cacheContext = await this.cacheIntegration.preGenerate(
+            `Generate ${task.componentName} component`
+          );
+        } catch (error) {
+          logger.warn({ error, component: task.componentName }, 'Failed to get cache context');
+        }
+      }
+
+      // Enhance prompt with dependency and cache context
+      let enhancedPrompt = task.prompt;
+      if (cacheContext) {
+        enhancedPrompt = `${cacheContext}\n\n${enhancedPrompt}`;
+      }
+      if (dependencyContext) {
+        enhancedPrompt = `${enhancedPrompt}\n\n--- Context from related components: ---\n${dependencyContext}`;
+      }
 
       // Build messages for AI
       const messages = [
