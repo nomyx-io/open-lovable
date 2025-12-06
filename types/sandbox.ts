@@ -1,5 +1,7 @@
 // Global types for sandbox file management
 
+import type { ProjectTypeId } from '@/lib/projects/project-type';
+
 export interface SandboxFile {
   content: string;
   lastModified: number;
@@ -12,13 +14,16 @@ export interface SandboxFileCache {
   manifest?: any; // FileManifest type from file-manifest.ts
 }
 
+export interface SandboxData {
+  sandboxId: string;
+  url: string;
+  projectType?: ProjectTypeId;
+}
+
 export interface SandboxState {
   fileCache: SandboxFileCache | null;
   sandbox: any; // E2B sandbox instance
-  sandboxData: {
-    sandboxId: string;
-    url: string;
-  } | null;
+  sandboxData: SandboxData | null;
 }
 
 // Declare global types

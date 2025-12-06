@@ -48,6 +48,22 @@ export const appConfig = {
     workingDirectory: '/home/user/app',
   },
   
+  // Next.js Sandbox Configuration
+  nextjs: {
+    // Development server port for Next.js
+    devPort: 3000,
+    
+    // Time to wait for Next.js dev server to be ready (in milliseconds)
+    // Next.js takes longer than Vite to start
+    startupDelay: 15000,
+    
+    // Time to wait for CSS rebuild (in milliseconds)
+    cssRebuildDelay: 3000,
+    
+    // Working directory in sandbox
+    workingDirectory: '/home/user/app',
+  },
+  
   // AI Model Configuration
   ai: {
     // Default AI model

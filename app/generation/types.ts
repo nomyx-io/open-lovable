@@ -2,10 +2,13 @@
  * Shared types for the Generation page components
  */
 
+import type { ProjectTypeId } from '@/lib/projects/project-type';
+
 export interface SandboxData {
   sandboxId: string;
   url: string;
   provider?: 'e2b' | 'vercel';
+  projectType?: ProjectTypeId;
   [key: string]: any;
 }
 
@@ -133,6 +136,7 @@ export interface ConversationContext {
   appliedCode: AppliedCode[];
   currentProject: string;
   lastGeneratedCode?: string;
+  projectType?: ProjectTypeId;
 }
 
 export interface ScrapedWebsite {

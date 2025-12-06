@@ -48,7 +48,7 @@ export async function initMonitoring(): Promise<void> {
   if (dsn && typeof window !== 'undefined') {
     try {
       // Dynamic import for optional Sentry dependency
-      // @ts-ignore - Sentry is optional
+      // @ts-expect-error - Sentry is optional
       const Sentry = await import('@sentry/nextjs').catch(() => null);
       
       if (Sentry) {
@@ -120,7 +120,7 @@ async function reportToSentry(report: ErrorReport): Promise<void> {
   if (typeof window === 'undefined') return;
   
   try {
-    // @ts-ignore - Sentry is optional
+    // @ts-expect-error - Sentry is optional
     const Sentry = await import('@sentry/nextjs').catch(() => null);
     
     if (Sentry?.withScope) {
@@ -179,7 +179,7 @@ export function captureMessage(
   logger.info({ message, level, context }, message);
   
   if (typeof window !== 'undefined') {
-    // @ts-ignore - Sentry is optional
+    // @ts-expect-error - Sentry is optional
     import('@sentry/nextjs').then((Sentry: any) => {
       Sentry?.captureMessage?.(message, level);
     }).catch(() => {});
@@ -191,7 +191,7 @@ export function captureMessage(
  */
 export function setUser(userId: string, email?: string): void {
   if (typeof window !== 'undefined') {
-    // @ts-ignore - Sentry is optional
+    // @ts-expect-error - Sentry is optional
     import('@sentry/nextjs').then((Sentry: any) => {
       Sentry?.setUser?.({ id: userId, email });
     }).catch(() => {});
@@ -203,7 +203,7 @@ export function setUser(userId: string, email?: string): void {
  */
 export function clearUser(): void {
   if (typeof window !== 'undefined') {
-    // @ts-ignore - Sentry is optional
+    // @ts-expect-error - Sentry is optional
     import('@sentry/nextjs').then((Sentry: any) => {
       Sentry?.setUser?.(null);
     }).catch(() => {});
@@ -291,7 +291,7 @@ export function handleApiError(
   };
 }
 
-export default {
+const monitoring = {
   init: initMonitoring,
   captureError,
   captureMessage,
@@ -301,3 +301,5 @@ export default {
   handleApiError,
   getRecentErrors,
 };
+
+export default monitoring;

@@ -55,38 +55,55 @@
     --ring: 240 10% 3.9%;
 
     --radius: 0.5rem;
+    
+    /* Custom theme colors */
+    --theme-bg: 255 255 255;
+    --theme-surface: 249 250 251;
+    --theme-surface-elevated: 255 255 255;
+    --theme-text: 17 24 39;
+    --theme-text-secondary: 107 114 128;
+    --theme-border: 229 231 235;
+    --theme-border-subtle: 243 244 246;
   }
 
-  /* Temporarily disable dark mode until we migrate to semantic colors */
-  /* .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
 
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
 
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
 
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 1.2%;
 
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
+    --muted: 223 47% 11%;
+    --muted-foreground: 215.4 16.3% 56.9%;
 
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-  } */
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+    --ring: 216 34% 17%;
+    
+    /* Custom theme colors - dark */
+    --theme-bg: 17 24 39;
+    --theme-surface: 31 41 55;
+    --theme-surface-elevated: 55 65 81;
+    --theme-text: 249 250 251;
+    --theme-text-secondary: 156 163 175;
+    --theme-border: 55 65 81;
+    --theme-border-subtle: 31 41 55;
+  }
 }
 
 @layer utilities {

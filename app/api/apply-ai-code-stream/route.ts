@@ -4,12 +4,221 @@ import { parseMorphEdits, applyMorphEditToFile } from '@/lib/morph-fast-apply';
 import type { SandboxState } from '@/types/sandbox';
 import type { ConversationState } from '@/types/conversation';
 import { sandboxManager } from '@/lib/sandbox/sandbox-manager';
+import type { ProjectTypeId } from '@/lib/projects/project-type';
+import { postProcessFile } from '@/lib/code-quality/post-processor';
+import { validateCode } from '@/lib/code-quality/code-validator';
 
 declare global {
   var conversationState: ConversationState | null;
   var activeSandboxProvider: any;
   var existingFiles: Set<string>;
   var sandboxState: SandboxState;
+}
+
+/**
+ * Normalize file path based on project type
+ */
+function normalizeFilePath(filePath: string, projectType: ProjectTypeId): string {
+  let normalizedPath = filePath;
+  
+  // Remove leading slash
+  if (normalizedPath.startsWith('/')) {
+    normalizedPath = normalizedPath.substring(1);
+  }
+  
+  // Config files that should not be modified
+  const configFiles = ['tailwind.config.js', 'tailwind.config.ts', 'vite.config.js', 'vite.config.ts',
+                       'package.json', 'package-lock.json', 'tsconfig.json', 'postcss.config.js',
+                       'next.config.js', 'next.config.ts', 'next.config.mjs'];
+  const fileName = normalizedPath.split('/').pop() || '';
+  
+  if (configFiles.includes(fileName)) {
+    return normalizedPath; // Don't modify config files
+  }
+  
+  // Handle based on project type
+  if (projectType === 'nextjs-app' || projectType === 'nextjs-pages') {
+    return normalizeNextjsPath(normalizedPath, projectType);
+  } else if (projectType === 'astro') {
+    return normalizeAstroPath(normalizedPath);
+  } else {
+    return normalizeVitePath(normalizedPath);
+  }
+}
+
+/**
+ * Normalize path for Next.js projects
+ */
+function normalizeNextjsPath(path: string, projectType: ProjectTypeId): string {
+  // Next.js App Router structure
+  const nextjsRootPaths = ['app/', 'pages/', 'components/', 'lib/', 'hooks/', 'styles/', 'public/', 'utils/', 'types/'];
+  
+  // Check if already correctly pathed
+  for (const rootPath of nextjsRootPaths) {
+    if (path.startsWith(rootPath)) {
+      return path;
+    }
+  }
+  
+  // Handle special cases
+  
+  // API routes
+  if (path.includes('api/') && !path.startsWith('app/') && !path.startsWith('pages/')) {
+    if (projectType === 'nextjs-app') {
+      return `app/api/${path.replace(/^api\//, '')}`;
+    } else {
+      return `pages/api/${path.replace(/^api\//, '')}`;
+    }
+  }
+  
+  // Components
+  if (path.includes('components/') || path.endsWith('.jsx') || path.endsWith('.tsx')) {
+    if (!path.startsWith('components/')) {
+      // If it's a page-like component (page.tsx, layout.tsx, etc.)
+      if (path.includes('page.') || path.includes('layout.') || path.includes('loading.') || path.includes('error.')) {
+        return `app/${path}`;
+      }
+      // Otherwise it's a regular component
+      return `components/${path.replace(/^src\/components\//, '').replace(/^components\//, '')}`;
+    }
+  }
+  
+  // CSS/styles
+  if (path.endsWith('.css') || path.endsWith('.scss')) {
+    if (!path.startsWith('styles/') && !path.startsWith('app/')) {
+      // globals.css should go in app/ for App Router
+      if (path.includes('globals') || path.includes('global')) {
+        return `app/globals.css`;
+      }
+      return `styles/${path.replace(/^src\//, '').replace(/^styles\//, '')}`;
+    }
+  }
+  
+  // If starts with src/, transform appropriately
+  if (path.startsWith('src/')) {
+    const withoutSrc = path.substring(4);
+    
+    // Check for known subdirectories
+    if (withoutSrc.startsWith('components/')) {
+      return withoutSrc; // components/... is fine
+    }
+    if (withoutSrc.startsWith('lib/') || withoutSrc.startsWith('utils/')) {
+      return withoutSrc;
+    }
+    if (withoutSrc.startsWith('hooks/')) {
+      return withoutSrc;
+    }
+    
+    // Default: treat as component
+    return `components/${withoutSrc}`;
+  }
+  
+  // For App.jsx/App.tsx, transform to page.tsx
+  if (path === 'App.jsx' || path === 'App.tsx') {
+    return 'app/page.tsx';
+  }
+  
+  // index.html is not needed in Next.js (handled by layout)
+  if (path === 'index.html') {
+    return ''; // Skip this file
+  }
+  
+  // index.css becomes globals.css
+  if (path === 'index.css' || path.endsWith('/index.css')) {
+    return 'app/globals.css';
+  }
+  
+  // main.jsx/main.tsx not needed in Next.js
+  if (path === 'main.jsx' || path === 'main.tsx') {
+    return ''; // Skip this file
+  }
+  
+  return path;
+}
+
+/**
+ * Normalize path for Astro projects
+ */
+function normalizeAstroPath(path: string): string {
+  // Astro uses src/ directory with specific subdirectories
+  const astroRootPaths = ['src/', 'public/'];
+  
+  // Check if already correctly pathed
+  for (const rootPath of astroRootPaths) {
+    if (path.startsWith(rootPath)) {
+      return path;
+    }
+  }
+  
+  // Handle special cases
+  
+  // API routes go in src/pages/api/
+  if (path.includes('api/') && !path.startsWith('src/pages/api/')) {
+    return `src/pages/api/${path.replace(/^api\//, '')}`;
+  }
+  
+  // Pages (.astro files) go in src/pages/
+  if (path.endsWith('.astro')) {
+    if (!path.startsWith('src/')) {
+      // Layouts go in src/layouts/
+      if (path.includes('layout') || path.includes('Layout')) {
+        return `src/layouts/${path.replace(/^.*\//, '')}`;
+      }
+      // Pages go in src/pages/
+      return `src/pages/${path.replace(/^pages\//, '')}`;
+    }
+  }
+  
+  // React components (.tsx, .jsx) go in src/components/
+  if ((path.endsWith('.tsx') || path.endsWith('.jsx')) && !path.startsWith('src/')) {
+    return `src/components/${path.replace(/^components\//, '')}`;
+  }
+  
+  // CSS/styles go in src/styles/
+  if ((path.endsWith('.css') || path.endsWith('.scss')) && !path.startsWith('src/')) {
+    return `src/styles/${path.replace(/^styles\//, '')}`;
+  }
+  
+  // Handle src/ prefix for other files
+  if (path.startsWith('src/')) {
+    return path;
+  }
+  
+  // For App.jsx/App.tsx, transform to page
+  if (path === 'App.jsx' || path === 'App.tsx') {
+    return 'src/pages/index.astro';
+  }
+  
+  // index.html is handled differently in Astro
+  if (path === 'index.html') {
+    return ''; // Skip - use Layout.astro instead
+  }
+  
+  // index.css becomes global.css
+  if (path === 'index.css' || path.endsWith('/index.css')) {
+    return 'src/styles/global.css';
+  }
+  
+  // main.jsx/main.tsx not needed in Astro
+  if (path === 'main.jsx' || path === 'main.tsx') {
+    return ''; // Skip
+  }
+  
+  // Default: put in src/
+  return `src/${path}`;
+}
+
+/**
+ * Normalize path for Vite projects
+ */
+function normalizeVitePath(path: string): string {
+  // Vite/React structure puts everything in src/
+  if (!path.startsWith('src/') &&
+      !path.startsWith('public/') &&
+      path !== 'index.html') {
+    return 'src/' + path;
+  }
+  return path;
 }
 
 interface ParsedResponse {
@@ -599,33 +808,68 @@ export async function POST(request: NextRequest) {
               action: 'creating'
             });
 
-            // Normalize the file path
-            let normalizedPath = file.path;
-            if (normalizedPath.startsWith('/')) {
-              normalizedPath = normalizedPath.substring(1);
-            }
-            if (!normalizedPath.startsWith('src/') &&
-              !normalizedPath.startsWith('public/') &&
-              normalizedPath !== 'index.html' &&
-              !configFiles.includes(normalizedPath.split('/').pop() || '')) {
-              normalizedPath = 'src/' + normalizedPath;
+            // Get project type from sandbox state
+            const projectType: ProjectTypeId = global.sandboxState?.sandboxData?.projectType || 'vite-react';
+            
+            // Normalize the file path based on project type
+            let normalizedPath = normalizeFilePath(file.path, projectType);
+            
+            // Skip files that shouldn't be created (returned as empty string)
+            if (!normalizedPath) {
+              console.log(`[apply-ai-code-stream] Skipping file ${file.path} - not needed for ${projectType}`);
+              await sendProgress({
+                type: 'file-progress',
+                current: index + 1,
+                total: filteredFiles.length,
+                fileName: file.path,
+                action: 'skipped'
+              });
+              continue;
             }
 
             const isUpdate = global.existingFiles.has(normalizedPath);
 
-            // Remove any CSS imports from JSX/JS files (we're using Tailwind)
+            // Run post-processor to fix common issues
             let fileContent = file.content;
-            if (file.path.endsWith('.jsx') || file.path.endsWith('.js') || file.path.endsWith('.tsx') || file.path.endsWith('.ts')) {
-              fileContent = fileContent.replace(/import\s+['"]\.\/[^'"]+\.css['"];?\s*\n?/g, '');
+            const processingResult = postProcessFile(fileContent, normalizedPath);
+            
+            if (processingResult.hadIssues) {
+              fileContent = processingResult.code;
+              console.log(`[apply-ai-code-stream] Auto-fixed ${processingResult.changes.length} issues in ${normalizedPath}`);
+              
+              // Log the fixes
+              for (const change of processingResult.changes) {
+                console.log(`[apply-ai-code-stream]   - ${change.type}: ${change.description}`);
+              }
+              
+              // Send progress about auto-fixes
+              if (processingResult.changes.length > 0) {
+                await sendProgress({
+                  type: 'info',
+                  message: `Auto-fixed ${processingResult.changes.length} issues in ${normalizedPath.split('/').pop()}`
+                });
+              }
+            }
+            
+            // Validate the processed code
+            const validationResult = validateCode(fileContent, normalizedPath, projectType);
+            if (!validationResult.valid) {
+              console.warn(`[apply-ai-code-stream] Validation issues in ${normalizedPath}:`,
+                validationResult.errors.map(e => e.message));
+              
+              // Send warning for critical errors
+              const criticalErrors = validationResult.errors.filter(e => e.severity === 'critical');
+              if (criticalErrors.length > 0) {
+                await sendProgress({
+                  type: 'warning',
+                  message: `${normalizedPath.split('/').pop()}: ${criticalErrors[0].message}`
+                });
+              }
             }
 
-            // Fix common Tailwind CSS errors in CSS files
-            if (file.path.endsWith('.css')) {
-              // Replace shadow-3xl with shadow-2xl (shadow-3xl doesn't exist)
-              fileContent = fileContent.replace(/shadow-3xl/g, 'shadow-2xl');
-              // Replace any other non-existent shadow utilities
-              fileContent = fileContent.replace(/shadow-4xl/g, 'shadow-2xl');
-              fileContent = fileContent.replace(/shadow-5xl/g, 'shadow-2xl');
+            // Remove any CSS imports from JSX/JS files (we're using Tailwind) - kept as fallback
+            if (file.path.endsWith('.jsx') || file.path.endsWith('.js') || file.path.endsWith('.tsx') || file.path.endsWith('.ts')) {
+              fileContent = fileContent.replace(/import\s+['"]\.\/[^'"]+\.css['"];?\s*\n?/g, '');
             }
 
             // Create directory if needed

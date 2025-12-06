@@ -1,8 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { SandboxFactory } from '@/lib/sandbox/factory';
 // SandboxProvider type is used through SandboxFactory
 import type { SandboxState } from '@/types/sandbox';
 import { sandboxManager } from '@/lib/sandbox/sandbox-manager';
+import { getProjectType } from '@/lib/projects/project-type-manager';
+import type { ProjectTypeId } from '@/lib/projects/project-type';
 
 // Store active sandbox globally
 declare global {
@@ -12,9 +14,21 @@ declare global {
   var sandboxState: SandboxState;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    console.log('[create-ai-sandbox-v2] Creating sandbox...');
+    // Parse request body for project type
+    let projectType: ProjectTypeId = 'vite-react'; // Default
+    
+    try {
+      const body = await request.json();
+      if (body.projectType && ['vite-react', 'nextjs-app', 'nextjs-pages', 'astro'].includes(body.projectType)) {
+        projectType = body.projectType;
+      }
+    } catch {
+      // Body might be empty, use default
+    }
+    
+    console.log(`[create-ai-sandbox-v2] Creating sandbox with project type: ${projectType}...`);
     
     // Clean up all existing sandboxes
     console.log('[create-ai-sandbox-v2] Cleaning up existing sandboxes...');
@@ -41,8 +55,19 @@ export async function POST() {
     const provider = SandboxFactory.create();
     const sandboxInfo = await provider.createSandbox();
     
-    console.log('[create-ai-sandbox-v2] Setting up Vite React app...');
-    await provider.setupViteApp();
+    // Get project type configuration
+    const projectConfig = getProjectType(projectType);
+    
+    console.log(`[create-ai-sandbox-v2] Setting up ${projectConfig.name} project...`);
+    
+    // Setup project based on type
+    if (projectType === 'nextjs-app' || projectType === 'nextjs-pages') {
+      await provider.setupNextApp();
+    } else if (projectType === 'astro') {
+      await provider.setupAstroApp();
+    } else {
+      await provider.setupViteApp();
+    }
     
     // Register with sandbox manager
     sandboxManager.registerSandbox(sandboxInfo.sandboxId, provider);
@@ -64,7 +89,8 @@ export async function POST() {
       sandbox: provider, // Store the provider instead of raw sandbox
       sandboxData: {
         sandboxId: sandboxInfo.sandboxId,
-        url: sandboxInfo.url
+        url: sandboxInfo.url,
+        projectType: projectType
       }
     };
     
@@ -75,7 +101,8 @@ export async function POST() {
       sandboxId: sandboxInfo.sandboxId,
       url: sandboxInfo.url,
       provider: sandboxInfo.provider,
-      message: 'Sandbox created and Vite React app initialized'
+      projectType: projectType,
+      message: `Sandbox created and ${projectConfig.name} project initialized`
     });
 
   } catch (error) {
