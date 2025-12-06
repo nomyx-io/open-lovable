@@ -4,6 +4,7 @@
  * Provides:
  * - Project type abstraction (Vite, Next.js, Astro, Expo, etc.)
  * - Project type management
+ * - Intelligent template selection
  * - Save/load functionality with version history
  */
 
@@ -11,6 +12,9 @@
 export * from './project-type';
 export * from './project-type-manager';
 export { viteReactConfig, nextjsAppConfig, astroConfig, expoConfig } from './project-types';
+
+// Template Selection
+export * from './template-selector';
 
 // Project Persistence
 export * from './types';
