@@ -10,6 +10,7 @@ interface UseSandboxReturn {
   loading: boolean;
   status: { text: string; active: boolean };
   createSandbox: (fromHomeScreen?: boolean) => Promise<SandboxData | null>;
+  restoreSandbox: (sandboxId: string, sandboxUrl: string) => Promise<SandboxData | null>;
   checkSandboxStatus: () => Promise<void>;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
   refreshIframe: () => void;
@@ -141,12 +142,59 @@ export function useSandbox(
     }
   }, [sandboxData]);
 
+  // Restore a sandbox from stored session data
+  const restoreSandbox = useCallback(async (sandboxId: string, sandboxUrl: string): Promise<SandboxData | null> => {
+    console.log('[restoreSandbox] Attempting to restore sandbox:', { sandboxId, sandboxUrl });
+    
+    try {
+      // Verify the sandbox is still alive
+      const response = await fetch('/api/sandbox-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sandboxId })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.isAlive) {
+        console.log('[restoreSandbox] Sandbox is alive, restoring...');
+        
+        const restoredData: SandboxData = {
+          sandboxId,
+          url: sandboxUrl,
+          provider: data.sandboxInfo?.provider || 'e2b',
+          ...data.sandboxInfo
+        };
+        
+        setSandboxData(restoredData);
+        updateStatus('Sandbox restored', true);
+        log('Sandbox restored from session');
+        
+        // Update iframe
+        setTimeout(() => {
+          if (iframeRef.current) {
+            iframeRef.current.src = sandboxUrl;
+          }
+        }, 100);
+        
+        return restoredData;
+      } else {
+        console.log('[restoreSandbox] Sandbox is no longer alive');
+        return null;
+      }
+    } catch (error) {
+      console.error('[restoreSandbox] Failed to restore sandbox:', error);
+      return null;
+    }
+  }, [setSandboxData, updateStatus, log]);
+
   return {
     sandboxData,
     setSandboxData,
     loading,
     status,
     createSandbox,
+    restoreSandbox,
     checkSandboxStatus,
     iframeRef,
     refreshIframe

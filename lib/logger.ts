@@ -1,38 +1,62 @@
 /**
  * Structured Logger - pino-based logging for the Open Lovable application
- * 
+ *
  * This module provides:
  * - Structured JSON logging for production
  * - Pretty-printed logs for development
+ * - File logging for debugging (logs/app.log)
  * - Context-aware child loggers
  * - Performance timing utilities
  * - Request/Response logging helpers
- * 
+ *
  * Usage:
  * ```ts
  * import { logger, createChildLogger } from '@/lib/logger';
- * 
+ *
  * // Basic logging
  * logger.info('Server started');
  * logger.error({ err: error }, 'Request failed');
- * 
+ *
  * // Child logger with context
  * const sandboxLogger = createChildLogger('sandbox', { sandboxId: 'xyz' });
  * sandboxLogger.info('Sandbox created');
- * 
+ *
  * // Performance timing
  * const { end } = logger.time('api-call');
  * // ... do work
  * end('API call completed');
  * ```
+ *
+ * Environment Variables:
+ * - LOG_LEVEL: Set log level (trace, debug, info, warn, error, fatal)
+ * - LOG_TO_FILE: Enable file logging (set to 'true')
+ * - LOG_FILE_PATH: Custom log file path (default: logs/app.log)
  */
 
-import pino, { Logger, LoggerOptions } from 'pino';
+import pino, { Logger, LoggerOptions, TransportTargetOptions } from 'pino';
+import path from 'path';
+import fs from 'fs';
 
 // Determine environment
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
 const isServer = typeof window === 'undefined';
+
+// File logging configuration
+const LOG_TO_FILE = process.env.LOG_TO_FILE === 'true' || isDevelopment;
+const LOG_FILE_PATH = process.env.LOG_FILE_PATH || 'logs/app.log';
+const LOG_DIR = path.dirname(LOG_FILE_PATH);
+
+// Ensure log directory exists (server-side only)
+if (isServer && LOG_TO_FILE) {
+  try {
+    if (!fs.existsSync(LOG_DIR)) {
+      fs.mkdirSync(LOG_DIR, { recursive: true });
+    }
+  } catch {
+    console.warn(`[logger] Could not create log directory: ${LOG_DIR}`);
+  }
+}
 
 // Log levels
 export type LogLevel = 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
@@ -100,20 +124,50 @@ const baseConfig: LoggerOptions = {
   },
 };
 
-// Server-side logger with pino-pretty in development
+// Build transport targets for server-side logging
+function buildServerTransport(): LoggerOptions['transport'] {
+  const targets: TransportTargetOptions[] = [];
+  
+  // Console transport (pretty in dev, JSON in prod)
+  if (isDevelopment) {
+    targets.push({
+      target: 'pino-pretty',
+      level: baseConfig.level as string,
+      options: {
+        colorize: true,
+        translateTime: 'HH:MM:ss.l',
+        ignore: 'pid,hostname',
+        messageFormat: '{levelLabel} [{context}] {msg}',
+        destination: 1, // stdout
+      },
+    });
+  } else {
+    targets.push({
+      target: 'pino/file',
+      level: baseConfig.level as string,
+      options: { destination: 1 }, // stdout
+    });
+  }
+  
+  // File transport (always JSON for parsing)
+  if (LOG_TO_FILE) {
+    targets.push({
+      target: 'pino/file',
+      level: 'debug', // Capture more detail in file logs
+      options: {
+        destination: LOG_FILE_PATH,
+        mkdir: true,
+      },
+    });
+  }
+  
+  return targets.length > 0 ? { targets } : undefined;
+}
+
+// Server-side logger configuration
 const serverConfig: LoggerOptions = {
   ...baseConfig,
-  transport: isDevelopment
-    ? {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'HH:MM:ss.l',
-          ignore: 'pid,hostname',
-          messageFormat: '{levelLabel} [{context}] {msg}',
-        },
-      }
-    : undefined, // Use default JSON in production
+  transport: buildServerTransport(),
 };
 
 // Browser-side logger (no pino-pretty, simplified output)

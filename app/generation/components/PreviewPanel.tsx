@@ -5,6 +5,7 @@ import { CodePreview } from './CodePreview';
 import { SandboxPreview } from './SandboxPreview';
 import { BrowserTestPanel } from '@/components/browser';
 import type { ActiveTab, GenerationProgress, CodeApplicationState, LoadingStage } from '../types';
+import type { SandboxError } from '@/components/HMRErrorDetector';
 
 interface PreviewPanelProps {
   activeTab: ActiveTab;
@@ -27,6 +28,11 @@ interface PreviewPanelProps {
   loading: boolean;
   screenshotError: string | null;
   refreshIframe: () => void;
+  // Error handling props
+  onErrorDetected?: (errors: SandboxError[]) => void;
+  onErrorCleared?: () => void;
+  currentError?: SandboxError | null;
+  isAutoFixing?: boolean;
 }
 
 export function PreviewPanel({
@@ -49,7 +55,11 @@ export function PreviewPanel({
   isStartingNewGeneration,
   loading,
   screenshotError,
-  refreshIframe
+  refreshIframe,
+  onErrorDetected,
+  onErrorCleared,
+  currentError,
+  isAutoFixing
 }: PreviewPanelProps) {
   const [showBrowserTest, setShowBrowserTest] = useState(false);
   
@@ -93,22 +103,27 @@ export function PreviewPanel({
         loading={loading}
         screenshotError={screenshotError}
         refreshIframe={refreshIframe}
+        onErrorDetected={onErrorDetected}
+        onErrorCleared={onErrorCleared}
+        currentError={currentError}
+        isAutoFixing={isAutoFixing}
       />
     );
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden order-1 lg:order-2 min-h-[50vh] lg:min-h-0">
-      {/* Tab Header */}
-      <div className="px-3 py-3 lg:px-4 lg:py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex flex-wrap justify-between items-center gap-2 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="inline-flex bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-0.5">
+    <div className="w-full h-full flex flex-col overflow-hidden">
+      {/* Tab Header - Enhanced with glassmorphism and premium styling */}
+      <div className="px-6 py-5 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200/80 dark:border-gray-700/80 flex flex-wrap justify-between items-center gap-4 flex-shrink-0 shadow-soft-sm">
+        <div className="flex items-center gap-4">
+          {/* Enhanced Tab Bar */}
+          <div className="inline-flex bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700/60 rounded-xl p-1 shadow-inner">
             <button
               onClick={() => setActiveTab('generation')}
-              className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
+              className={`relative px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-semibold ${
                 activeTab === 'generation'
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md'
+                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50'
               }`}
             >
               <div className="flex items-center gap-1.5">
@@ -117,13 +132,16 @@ export function PreviewPanel({
                 </svg>
                 <span className="hidden sm:inline">Code</span>
               </div>
+              {activeTab === 'generation' && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-gradient-to-r from-orange-500 to-red-500 rounded-full" />
+              )}
             </button>
             <button
               onClick={() => setActiveTab('preview')}
-              className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
+              className={`relative px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-semibold ${
                 activeTab === 'preview'
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md'
+                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50'
               }`}
             >
               <div className="flex items-center gap-1.5">
@@ -133,13 +151,16 @@ export function PreviewPanel({
                 </svg>
                 <span className="hidden sm:inline">Preview</span>
               </div>
+              {activeTab === 'preview' && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full" />
+              )}
             </button>
             <button
               onClick={() => setActiveTab('browser')}
-              className={`px-3 py-1.5 rounded-md transition-all text-xs font-medium ${
+              className={`relative px-4 py-2.5 rounded-lg transition-all duration-200 text-sm font-semibold ${
                 activeTab === 'browser'
-                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md'
+                  : 'bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50'
               }`}
             >
               <div className="flex items-center gap-1.5">
@@ -148,47 +169,53 @@ export function PreviewPanel({
                 </svg>
                 <span className="hidden sm:inline">Test</span>
               </div>
+              {activeTab === 'browser' && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" />
+              )}
             </button>
           </div>
         </div>
         
-        <div className="flex gap-1.5 lg:gap-2 items-center flex-wrap">
-          {/* File count */}
+        <div className="flex gap-2 lg:gap-2.5 items-center flex-wrap">
+          {/* File count - Enhanced badge */}
           {activeTab === 'generation' && !generationProgress.isEdit && generationProgress.files.length > 0 && (
-            <div className="hidden sm:inline-flex text-gray-500 dark:text-gray-400 text-xs font-medium">
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100/80 dark:bg-gray-800/80 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400">
+              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
               {generationProgress.files.length} files
             </div>
           )}
           
-          {/* Generation status */}
+          {/* Generation status - Enhanced with gradient */}
           {generationProgress.isGenerating && (
-            <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-xs font-medium text-green-700 dark:text-green-400">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200/80 dark:border-green-800/80 rounded-xl text-xs font-semibold text-green-700 dark:text-green-400 shadow-sm">
               <div className="relative">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                <div className="absolute inset-0 w-1.5 h-1.5 bg-green-400 rounded-full animate-ping" />
+                <div className="w-2 h-2 bg-green-500 rounded-full" />
+                <div className="absolute inset-0 w-2 h-2 bg-green-400 rounded-full animate-ping" />
               </div>
-              <span className="hidden sm:inline">{generationProgress.isEdit ? 'Editing' : 'Generating'}</span>
+              <span>{generationProgress.isEdit ? 'Editing' : 'Generating'}</span>
             </div>
           )}
           
-          {/* Sandbox status */}
+          {/* Sandbox status - Enhanced */}
           {sandboxData && !generationProgress.isGenerating && (
-            <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/60 dark:border-gray-700/60 rounded-xl text-xs font-medium text-gray-600 dark:text-gray-400">
+              <div className="w-2 h-2 bg-green-500 rounded-full shadow-sm shadow-green-500/50" />
               <span className="hidden sm:inline">Active</span>
             </div>
           )}
           
-          {/* External link */}
+          {/* External link - Enhanced button */}
           {sandboxData && (
             <a
               href={sandboxData.url}
               target="_blank"
               rel="noopener noreferrer"
               title="Open in new tab"
-              className="p-1.5 rounded-lg transition-all text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="p-2 rounded-xl transition-all duration-200 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:shadow-sm"
             >
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
               </svg>
             </a>
@@ -196,8 +223,8 @@ export function PreviewPanel({
         </div>
       </div>
       
-      {/* Main Content */}
-      <div className="flex-1 relative overflow-hidden bg-gray-50 dark:bg-gray-900">
+      {/* Main Content - Enhanced background */}
+      <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-900 dark:to-gray-800/50">
         {renderMainContent()}
       </div>
     </div>

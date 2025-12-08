@@ -1,7 +1,9 @@
 'use client';
 
+import { RefObject } from 'react';
 import { ChatInterface } from './ChatInterface';
 import type { ChatMessage, ConversationContext, GenerationProgress, CodeApplicationState } from '../types';
+import type { ScreenshotAttachment } from '@/components/shared/ScreenshotButton';
 
 interface ChatPanelProps {
   chatMessages: ChatMessage[];
@@ -10,9 +12,10 @@ interface ChatPanelProps {
   codeApplicationState: CodeApplicationState;
   aiChatInput: string;
   setAiChatInput: (value: string) => void;
-  onSendMessage: () => Promise<void>;
+  onSendMessage: (screenshot?: ScreenshotAttachment | null) => Promise<void>;
   screenshotCollapsed: boolean;
   setScreenshotCollapsed: (value: boolean) => void;
+  iframeRef?: RefObject<HTMLIFrameElement | null>;
 }
 
 export function ChatPanel({
@@ -24,12 +27,13 @@ export function ChatPanel({
   setAiChatInput,
   onSendMessage,
   screenshotCollapsed,
-  setScreenshotCollapsed
+  setScreenshotCollapsed,
+  iframeRef
 }: ChatPanelProps) {
   return (
-    <div className="w-full lg:w-[380px] xl:w-[420px] flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 order-2 lg:order-1 max-h-[50vh] lg:max-h-none overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-white dark:bg-gray-900 overflow-hidden">
       {/* Chat Interface */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <ChatInterface
           chatMessages={chatMessages}
           conversationContext={conversationContext}
@@ -40,6 +44,7 @@ export function ChatPanel({
           onSendMessage={onSendMessage}
           screenshotCollapsed={screenshotCollapsed}
           setScreenshotCollapsed={setScreenshotCollapsed}
+          iframeRef={iframeRef}
         />
       </div>
     </div>

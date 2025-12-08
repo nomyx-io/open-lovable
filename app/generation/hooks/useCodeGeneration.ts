@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { appConfig } from '@/config/app.config';
-import type { 
-  GenerationProgress, 
-  GeneratedFile, 
-  ConversationContext, 
+import type {
+  GenerationProgress,
+  GeneratedFile,
+  ConversationContext,
   SandboxData,
   CodeApplicationState,
-  ChatMessage
+  ChatMessage,
+  ScreenshotAttachment
 } from '../types';
 
 interface UseCodeGenerationReturn {
@@ -18,7 +19,7 @@ interface UseCodeGenerationReturn {
   setCodeApplicationState: React.Dispatch<React.SetStateAction<CodeApplicationState>>;
   promptInput: string;
   setPromptInput: React.Dispatch<React.SetStateAction<string>>;
-  sendChatMessage: (message: string, sandboxData: SandboxData | null, createSandbox: () => Promise<SandboxData | null>) => Promise<void>;
+  sendChatMessage: (message: string, sandboxData: SandboxData | null, createSandbox: () => Promise<SandboxData | null>, screenshot?: ScreenshotAttachment | null) => Promise<void>;
   applyGeneratedCode: (code: string, isEdit: boolean, sandboxData: SandboxData | null, overrideSandboxData?: SandboxData) => Promise<void>;
 }
 
@@ -47,8 +48,6 @@ export function useCodeGeneration(
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress>(initialGenerationProgress);
   const [codeApplicationState, setCodeApplicationState] = useState<CodeApplicationState>({ stage: null });
   const [promptInput, setPromptInput] = useState('');
-  
-  const codeDisplayRef = useRef<HTMLDivElement>(null);
 
   const parseFileType = (filePath: string): GeneratedFile['type'] => {
     const ext = filePath.split('.').pop()?.toLowerCase() || '';
@@ -252,11 +251,20 @@ export function useCodeGeneration(
   const sendChatMessage = useCallback(async (
     message: string,
     sandboxData: SandboxData | null,
-    createSandbox: () => Promise<SandboxData | null>
+    createSandbox: () => Promise<SandboxData | null>,
+    screenshot?: ScreenshotAttachment | null
   ) => {
-    if (!message.trim()) return;
+    if (!message.trim() && !screenshot) return;
     
-    addChatMessage(message, 'user');
+    // Add user message with screenshot if present
+    if (screenshot) {
+      addChatMessage(message || 'Here\'s a screenshot of the current state:', 'user', {
+        screenshotAttachment: screenshot.dataUrl,
+        screenshotDimensions: { width: screenshot.width, height: screenshot.height }
+      });
+    } else {
+      addChatMessage(message, 'user');
+    }
     
     // Start sandbox creation in parallel if needed
     let sandboxPromise: Promise<SandboxData | null> | null = null;
@@ -307,7 +315,12 @@ export function useCodeGeneration(
           prompt: message,
           model: aiModel,
           context: fullContext,
-          isEdit: isEdit
+          isEdit: isEdit,
+          screenshot: screenshot ? {
+            dataUrl: screenshot.dataUrl,
+            width: screenshot.width,
+            height: screenshot.height
+          } : undefined
         })
       });
       

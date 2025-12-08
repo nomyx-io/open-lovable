@@ -110,65 +110,67 @@ export function HeaderBar({
   };
 
   return (
-    <header className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm px-4 py-3 border-b border-gray-200/80 dark:border-gray-700/80 flex items-center justify-between sticky top-0 z-40 shadow-sm transition-colors duration-300">
+    <header className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md px-8 py-4 border-b border-gray-200/60 dark:border-gray-700/60 flex items-center justify-between sticky top-0 z-40 shadow-soft-sm transition-all duration-300">
       {/* Left: Logo & Brand */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-5">
         <Link
           href="/"
-          className="flex items-center gap-2.5 group transition-all duration-200 hover:opacity-80"
+          className="flex items-center gap-2.5 group transition-all duration-200 hover:opacity-90"
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-md shadow-orange-200/50 dark:shadow-orange-900/30 group-hover:shadow-lg group-hover:shadow-orange-300/50 dark:group-hover:shadow-orange-800/30 transition-shadow">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          <div className="relative">
+            {/* Subtle glow */}
+            <div className="absolute inset-0 bg-orange-500/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="relative w-9 h-9 bg-gradient-to-br from-orange-500 via-orange-600 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/25 group-hover:shadow-orange-500/40 transition-all duration-300">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
           </div>
-          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 hidden sm:block">Open Lovable</span>
+          <span className="text-sm font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent hidden sm:block">Open Lovable</span>
         </Link>
         
-        {/* Separator */}
-        <div className="hidden sm:block w-px h-6 bg-gray-200 dark:bg-gray-700" />
+        {/* Separator with gradient */}
+        <div className="hidden sm:block w-px h-6 bg-gradient-to-b from-transparent via-gray-300 to-transparent dark:via-gray-600" />
         
-        {/* Page indicator */}
-        <div className="hidden sm:flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span>Generation</span>
+        {/* Page indicator - Enhanced */}
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-100/80 dark:bg-gray-800/80 rounded-lg">
+          <div className="w-2 h-2 rounded-full bg-gradient-to-r from-orange-500 to-red-500" />
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Generation</span>
         </div>
       </div>
       
       {/* Right: Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 lg:gap-4">
         {/* Theme Toggle */}
         <ThemeToggle size="sm" />
         
-        {/* Divider */}
-        <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+        {/* Divider with gradient */}
+        <div className="w-px h-6 bg-gradient-to-b from-transparent via-gray-300 to-transparent dark:via-gray-600 mx-1" />
         
-        {/* Sandbox Status Indicator */}
+        {/* Sandbox Status Indicator - Enhanced */}
         {sandboxData && (
-          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg mr-2">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200/80 dark:border-green-700/80 rounded-xl mr-2 shadow-sm">
             <div className="relative">
-              <div className="w-2 h-2 bg-green-500 rounded-full" />
+              <div className="w-2 h-2 bg-green-500 rounded-full shadow-sm shadow-green-500/50" />
               <div className="absolute inset-0 w-2 h-2 bg-green-400 rounded-full animate-ping opacity-75" />
             </div>
-            <span className="text-xs font-medium text-green-700 dark:text-green-400">Sandbox Active</span>
+            <span className="text-xs font-semibold text-green-700 dark:text-green-400">Sandbox Active</span>
           </div>
         )}
         
-        {/* Model Selector */}
-        <div className="relative">
+        {/* Model Selector - Enhanced */}
+        <div className="relative group">
           <select
             value={aiModel}
             onChange={handleModelChange}
             className="
-              appearance-none pl-3 pr-8 py-2 text-sm font-medium text-gray-700 dark:text-gray-200
-              bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg
-              focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400
-              hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700
-              transition-all duration-200 cursor-pointer
+              appearance-none pl-3 pr-9 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200
+              bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/80 rounded-xl
+              focus:outline-none focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400
+              hover:border-gray-300 dark:hover:border-gray-600 hover:bg-white dark:hover:bg-gray-800
+              transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md
             "
           >
             {appConfig.ai.availableModels.map(model => (
@@ -177,17 +179,17 @@ export function HeaderBar({
               </option>
             ))}
           </select>
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform duration-200 group-hover:translate-y-[-45%]">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-gray-400 dark:text-gray-500">
               <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
         </div>
         
-        {/* Divider */}
-        <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+        {/* Divider with gradient */}
+        <div className="w-px h-6 bg-gradient-to-b from-transparent via-gray-300 to-transparent dark:via-gray-600 mx-1" />
         
-        {/* Action Buttons */}
+        {/* Action Buttons - Keep existing but they already have good styling */}
         <IconButton
           onClick={onCreateSandbox}
           tooltip="New Sandbox"

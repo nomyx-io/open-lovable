@@ -271,7 +271,7 @@ with open('/home/user/app/package.json', 'w') as f:
     json.dump(package_json, f, indent=2)
 print('✓ package.json')
 
-# Vite config
+# Vite config - with HMR enabled for error detection
 vite_config = """import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -281,7 +281,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
-    hmr: false,
+    hmr: {
+      protocol: 'wss',
+      host: process.env.SANDBOX_HOST || '0.0.0.0'
+    },
     allowedHosts: ['.e2b.app', '.e2b.dev', '.vercel.run', 'localhost', '127.0.0.1']
   }
 })"""
@@ -410,7 +413,7 @@ else:
     print(f'⚠ Warning: npm install had issues: {result.stderr}')
     `);
     
-    // Start Vite dev server
+    // Start Vite dev server with log capture
     await this.sandbox.runCode(`
 import subprocess
 import os
@@ -422,18 +425,22 @@ os.chdir('/home/user/app')
 subprocess.run(['pkill', '-f', 'vite'], capture_output=True)
 time.sleep(1)
 
-# Start Vite dev server
+# Create log file
+log_file = open('/tmp/vite-output.log', 'w')
+
+# Start Vite dev server with logs captured to file
 env = os.environ.copy()
 env['FORCE_COLOR'] = '0'
 
 process = subprocess.Popen(
     ['npm', 'run', 'dev'],
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
+    stdout=log_file,
+    stderr=subprocess.STDOUT,
     env=env
 )
 
 print(f'✓ Vite dev server started with PID: {process.pid}')
+print('Logs will be written to /tmp/vite-output.log')
 print('Waiting for server to be ready...')
     `);
     
@@ -468,18 +475,22 @@ os.chdir('/home/user/app')
 subprocess.run(['pkill', '-f', 'vite'], capture_output=True)
 time.sleep(2)
 
-# Start Vite dev server
+# Clear and create log file
+log_file = open('/tmp/vite-output.log', 'w')
+
+# Start Vite dev server with logs captured to file
 env = os.environ.copy()
 env['FORCE_COLOR'] = '0'
 
 process = subprocess.Popen(
     ['npm', 'run', 'dev'],
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
+    stdout=log_file,
+    stderr=subprocess.STDOUT,
     env=env
 )
 
 print(f'✓ Vite restarted with PID: {process.pid}')
+print('Logs will be written to /tmp/vite-output.log')
     `);
     
     // Wait for Vite to be ready

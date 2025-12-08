@@ -27,6 +27,10 @@ export interface ChatMessageMetadata {
   commandType?: 'input' | 'output' | 'error' | 'success';
   brandingData?: BrandingData;
   sourceUrl?: string;
+  /** Screenshot attachment data URL */
+  screenshotAttachment?: string;
+  /** Screenshot dimensions */
+  screenshotDimensions?: { width: number; height: number };
 }
 
 export interface BrandingData {
@@ -166,3 +170,11 @@ export interface CodeApplicationState {
 export type LoadingStage = 'gathering' | 'planning' | 'generating' | null;
 
 export type ActiveTab = 'generation' | 'preview' | 'browser';
+
+/** Screenshot attachment for chat messages */
+export interface ScreenshotAttachment {
+  dataUrl: string;
+  width: number;
+  height: number;
+  timestamp: Date;
+}

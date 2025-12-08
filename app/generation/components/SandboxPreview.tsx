@@ -3,6 +3,7 @@
 import { useState, useEffect, type RefObject } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SandboxData, GenerationProgress, CodeApplicationState, LoadingStage } from '../types';
+import HMRErrorDetector, { type SandboxError } from '@/components/HMRErrorDetector';
 
 interface SandboxPreviewProps {
   sandboxData: SandboxData | null;
@@ -19,12 +20,18 @@ interface SandboxPreviewProps {
   loading: boolean;
   screenshotError: string | null;
   refreshIframe: () => void;
+  // Error handling props
+  onErrorDetected?: (errors: SandboxError[]) => void;
+  onErrorCleared?: () => void;
+  currentError?: SandboxError | null;
+  isAutoFixing?: boolean;
 }
 
 export function SandboxPreview({
   sandboxData, iframeRef, urlScreenshot, isScreenshotLoaded, setIsScreenshotLoaded,
   isCapturingScreenshot, isPreparingDesign, generationProgress, codeApplicationState,
-  loadingStage, isStartingNewGeneration, loading, screenshotError, refreshIframe
+  loadingStage, isStartingNewGeneration, loading, screenshotError, refreshIframe,
+  onErrorDetected, onErrorCleared, currentError, isAutoFixing
 }: SandboxPreviewProps) {
   const isInitialGeneration = !sandboxData?.url && (urlScreenshot || isCapturingScreenshot || isPreparingDesign || loadingStage);
   const isNewGenerationWithSandbox = isStartingNewGeneration && sandboxData?.url;
@@ -48,7 +55,27 @@ export function SandboxPreview({
   if (sandboxData?.url) {
     return (
       <div className="relative w-full h-full bg-white">
+        {/* HMR Error Detector - monitors iframe for Vite errors */}
+        <HMRErrorDetector
+          iframeRef={iframeRef}
+          sandboxUrl={sandboxData.url}
+          onErrorDetected={onErrorDetected || (() => {})}
+          onErrorCleared={onErrorCleared}
+          enabled={!generationProgress.isGenerating && (!codeApplicationState.stage || codeApplicationState.stage === 'complete')}
+        />
+        
         <iframe ref={iframeRef} src={sandboxData.url} className="w-full h-full border-none" title="Open Lovable Sandbox" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" />
+        
+        {/* Error Notification Banner */}
+        <AnimatePresence>
+          {currentError && (
+            <ErrorBanner
+              error={currentError}
+              isAutoFixing={isAutoFixing || false}
+            />
+          )}
+        </AnimatePresence>
+        
         <AnimatePresence>{codeApplicationState.stage && codeApplicationState.stage !== 'complete' && <CodeApplicationOverlay state={codeApplicationState} />}</AnimatePresence>
         <AnimatePresence>
           {generationProgress.isGenerating && generationProgress.isEdit && !codeApplicationState.stage && (
@@ -187,6 +214,109 @@ function CodeApplicationOverlay({ state }: CodeApplicationOverlayProps) {
         <div className="mt-6 w-48 h-1 bg-gray-100 rounded-full mx-auto overflow-hidden">
           <motion.div animate={{ x: ['-100%', '100%'] }} transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }} className="h-full w-1/3 bg-gradient-to-r from-transparent via-gray-400 to-transparent" />
         </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// Error Banner Component
+interface ErrorBannerProps {
+  error: SandboxError;
+  isAutoFixing: boolean;
+}
+
+function ErrorBanner({ error, isAutoFixing }: ErrorBannerProps) {
+  const getErrorIcon = () => {
+    switch (error.type) {
+      case 'npm-missing':
+        return '📦';
+      case 'syntax-error':
+        return '⚠️';
+      case 'runtime-error':
+        return '💥';
+      case 'build-error':
+        return '🔨';
+      default:
+        return '❌';
+    }
+  };
+
+  const getErrorLabel = () => {
+    switch (error.type) {
+      case 'npm-missing':
+        return 'Missing Package';
+      case 'syntax-error':
+        return 'Syntax Error';
+      case 'runtime-error':
+        return 'Runtime Error';
+      case 'build-error':
+        return 'Build Error';
+      default:
+        return 'Error';
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="absolute top-4 left-4 right-4 z-20"
+    >
+      <div className={`flex items-start gap-3 p-4 rounded-xl backdrop-blur-md shadow-lg border ${
+        isAutoFixing
+          ? 'bg-blue-50/95 dark:bg-blue-900/95 border-blue-200 dark:border-blue-700'
+          : 'bg-red-50/95 dark:bg-red-900/95 border-red-200 dark:border-red-700'
+      }`}>
+        <div className="text-2xl flex-shrink-0">
+          {isAutoFixing ? (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+            >
+              🔧
+            </motion.div>
+          ) : (
+            getErrorIcon()
+          )}
+        </div>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+              isAutoFixing
+                ? 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300'
+                : 'bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300'
+            }`}>
+              {isAutoFixing ? 'Auto-Fixing' : getErrorLabel()}
+            </span>
+            {error.file && (
+              <span className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate">
+                {error.file}{error.line ? `:${error.line}` : ''}
+              </span>
+            )}
+          </div>
+          
+          <p className={`text-sm font-medium ${
+            isAutoFixing
+              ? 'text-blue-800 dark:text-blue-200'
+              : 'text-red-800 dark:text-red-200'
+          }`}>
+            {error.message}
+          </p>
+          
+          {isAutoFixing && (
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+              AI is analyzing and fixing this issue...
+            </p>
+          )}
+        </div>
+        
+        {isAutoFixing && (
+          <div className="flex-shrink-0">
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
       </div>
     </motion.div>
   );

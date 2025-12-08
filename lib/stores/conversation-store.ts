@@ -1,15 +1,17 @@
 /**
  * Conversation Store - Zustand state management for chat and AI generation
- * 
+ *
  * This store manages:
  * - Chat messages history
  * - Conversation context (scraped websites, generated components, applied code)
  * - Generation progress and streaming state
  * - Code application state
+ *
+ * Includes localStorage persistence to survive browser reloads
  */
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 
 // Types
 export type MessageType = 'user' | 'ai' | 'system' | 'command' | 'error' | 'branding';
@@ -112,6 +114,11 @@ interface ConversationState {
   promptInput: string;
   aiChatInput: string;
   
+  // Session state
+  sandboxId: string | null;
+  sandboxUrl: string | null;
+  lastSessionTime: number | null;
+  
   // Actions - Messages
   addMessage: (content: string, type: MessageType, metadata?: ChatMessageMetadata) => void;
   clearMessages: () => void;
@@ -133,8 +140,16 @@ interface ConversationState {
   setAiChatInput: (input: string) => void;
   setAiModel: (model: string) => void;
   
+  // Actions - Session
+  setSandboxInfo: (sandboxId: string | null, sandboxUrl: string | null) => void;
+  updateSessionTime: () => void;
+  
   // Complex actions
   reset: () => void;
+  
+  // Hydration check
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
 }
 
 const initialGenerationProgress: GenerationProgress = {
@@ -169,12 +184,17 @@ const initialState = {
   aiModel: 'claude-sonnet-4-20250514',
   promptInput: '',
   aiChatInput: '',
+  sandboxId: null as string | null,
+  sandboxUrl: null as string | null,
+  lastSessionTime: null as number | null,
+  _hasHydrated: false,
 };
 
 export const useConversationStore = create<ConversationState>()(
   devtools(
-    (set, get) => ({
-      ...initialState,
+    persist(
+      (set, get) => ({
+        ...initialState,
       
       // Message actions
       addMessage: (content, type, metadata) => 
@@ -275,12 +295,54 @@ export const useConversationStore = create<ConversationState>()(
       setAiChatInput: (input) => set({ aiChatInput: input }, false, 'setAiChatInput'),
       setAiModel: (model) => set({ aiModel: model }, false, 'setAiModel'),
       
+      // Session actions
+      setSandboxInfo: (sandboxId, sandboxUrl) =>
+        set({ sandboxId, sandboxUrl, lastSessionTime: Date.now() }, false, 'setSandboxInfo'),
+      updateSessionTime: () =>
+        set({ lastSessionTime: Date.now() }, false, 'updateSessionTime'),
+      
       // Reset
-      reset: () => set(initialState, false, 'reset'),
+      reset: () => set({ ...initialState, _hasHydrated: true }, false, 'reset'),
+      
+      // Hydration
+      setHasHydrated: (state) => set({ _hasHydrated: state }, false, 'setHasHydrated'),
     }),
-    { name: 'conversation-store' }
+    {
+      name: 'open-lovable-session',
+      storage: createJSONStorage(() => localStorage),
+      // Only persist certain fields - not generation progress or streaming state
+      partialize: (state) => ({
+        messages: state.messages,
+        context: state.context,
+        aiModel: state.aiModel,
+        sandboxId: state.sandboxId,
+        sandboxUrl: state.sandboxUrl,
+        lastSessionTime: state.lastSessionTime,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    }
+  ),
+  { name: 'conversation-store' }
   )
 );
+
+// Hook to check if store has been hydrated from localStorage
+export const useHasHydrated = () => useConversationStore((state) => state._hasHydrated);
+
+// Hook to get session info
+export const useSessionInfo = () => useConversationStore((state) => ({
+  sandboxId: state.sandboxId,
+  sandboxUrl: state.sandboxUrl,
+  lastSessionTime: state.lastSessionTime,
+}));
+
+// Hook for session actions
+export const useSessionActions = () => useConversationStore((state) => ({
+  setSandboxInfo: state.setSandboxInfo,
+  updateSessionTime: state.updateSessionTime,
+}));
 
 // Selector hooks for optimized re-renders
 export const useMessages = () => useConversationStore((state) => state.messages);

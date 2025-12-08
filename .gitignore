@@ -60,3 +60,7 @@ bun.lockb
 
 # AI Documentation Cache
 .ol-cache/
+
+# Log files
+/logs/
+*.log

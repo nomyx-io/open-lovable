@@ -1,57 +1,65 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { sandboxManager } from '@/lib/sandbox/sandbox-manager';
 
-declare global {
-  var activeSandboxProvider: any;
-  var sandboxData: any;
-  var existingFiles: Set<string>;
-}
-
-export async function GET() {
+export async function POST(request: NextRequest) {
   try {
-    // Check sandbox manager first, then fall back to global state
-    const provider = sandboxManager.getActiveProvider() || global.activeSandboxProvider;
-    const sandboxExists = !!provider;
-
-    let sandboxHealthy = false;
-    let sandboxInfo = null;
-
-    if (sandboxExists && provider) {
-      try {
-        // Check if sandbox is healthy by getting its info
-        const providerInfo = provider.getSandboxInfo();
-        sandboxHealthy = !!providerInfo;
-        
-        sandboxInfo = {
-          sandboxId: providerInfo?.sandboxId || global.sandboxData?.sandboxId,
-          url: providerInfo?.url || global.sandboxData?.url,
-          filesTracked: global.existingFiles ? Array.from(global.existingFiles) : [],
-          lastHealthCheck: new Date().toISOString()
-        };
-      } catch (error) {
-        console.error('[sandbox-status] Health check failed:', error);
-        sandboxHealthy = false;
-      }
+    const { sandboxId } = await request.json();
+    
+    if (!sandboxId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Sandbox ID is required'
+      }, { status: 400 });
     }
+    
+    // Check if we have this sandbox in the manager
+    const provider = sandboxManager.getProvider(sandboxId);
+    
+    if (!provider) {
+      // Try to get the active provider if this is the active sandbox
+      const activeProvider = sandboxManager.getActiveProvider();
+      
+      if (!activeProvider) {
+        return NextResponse.json({
+          success: true,
+          isAlive: false,
+          reason: 'Sandbox not found in manager'
+        });
+      }
+      
+      // Check if the active provider matches
+      const sandboxInfo = activeProvider.getSandboxInfo?.();
+      if (sandboxInfo?.sandboxId === sandboxId) {
+        const isAlive = activeProvider.isAlive?.() ?? false;
+        return NextResponse.json({
+          success: true,
+          isAlive,
+          sandboxInfo
+        });
+      }
+      
+      return NextResponse.json({
+        success: true,
+        isAlive: false,
+        reason: 'Sandbox ID does not match active sandbox'
+      });
+    }
+    
+    // Check if the sandbox is still alive
+    const isAlive = provider.isAlive?.() ?? false;
+    const sandboxInfo = provider.getSandboxInfo?.();
     
     return NextResponse.json({
       success: true,
-      active: sandboxExists,
-      healthy: sandboxHealthy,
-      sandboxData: sandboxInfo,
-      message: sandboxHealthy 
-        ? 'Sandbox is active and healthy' 
-        : sandboxExists 
-          ? 'Sandbox exists but is not responding' 
-          : 'No active sandbox'
+      isAlive,
+      sandboxInfo
     });
     
   } catch (error) {
     console.error('[sandbox-status] Error:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: false,
-      active: false,
-      error: (error as Error).message 
+      error: (error as Error).message
     }, { status: 500 });
   }
 }
